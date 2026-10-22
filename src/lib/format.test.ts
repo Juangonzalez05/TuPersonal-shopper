@@ -3,6 +3,7 @@ import {
   decimalInputValue,
   formatCop,
   formatDate,
+  formatMonth,
   formatPercent,
   formatPhone,
   formatTrm,
@@ -43,6 +44,11 @@ describe('formatos es-CO', () => {
   it('fecha dd/MM/yyyy sin desfase de zona horaria', () => {
     expect(formatDate('2026-10-22')).toBe('22/10/2026')
     expect(formatDate('2026-01-01')).toBe('01/01/2026')
+  })
+
+  it('mes en palabras', () => {
+    expect(formatMonth('2026-10')).toBe('octubre de 2026')
+    expect(formatMonth('2027-01')).toBe('enero de 2027')
   })
 
   it('hoy en Bogotá aunque en UTC ya sea mañana', () => {

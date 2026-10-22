@@ -27,6 +27,8 @@ export type Shipment = {
   state: ShipmentState
   /** cobrado − costo real; null mientras está por cerrar. */
   differenceCop: number | null
+  /** Momento de creación (ISO); define el mes de una caja que aún no tiene llegada. */
+  createdAt: string
 }
 
 /** Línea de pedido vista desde las cajas. */
@@ -68,6 +70,7 @@ function toShipment(row: ShipmentRow): Shipment {
     chargedCop: row.charged_cop ?? 0,
     state: row.state === 'cerrada' ? 'cerrada' : 'por_cerrar',
     differenceCop: row.difference_cop,
+    createdAt: row.created_at ?? '',
   }
 }
 
