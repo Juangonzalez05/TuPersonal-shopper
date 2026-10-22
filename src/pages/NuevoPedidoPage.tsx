@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useCustomers } from '@/api/customers'
 import { useCreateOrder, useLastPricing } from '@/api/orders'
 import { useProducts } from '@/api/products'
+import { useLastStockCosts, useStock } from '@/api/stock'
 import { NumberField } from '@/components/NumberField'
 import { CustomerPicker } from '@/components/orders/CustomerPicker'
 import { OrderLineFields } from '@/components/orders/OrderLineFields'
@@ -26,6 +27,7 @@ import {
   type OrderFormValues,
 } from '@/lib/order-form'
 import { orderTotals } from '@/lib/pricing'
+import { stockShortages } from '@/lib/stock'
 import { cn } from '@/lib/utils'
 
 const STATUS_OPTIONS = [
@@ -37,6 +39,8 @@ export function NuevoPedidoPage() {
   const navigate = useNavigate()
   const customers = useCustomers()
   const products = useProducts()
+  const stock = useStock()
+  const lastCosts = useLastStockCosts()
   const lastPricing = useLastPricing()
   const createOrder = useCreateOrder()
 
@@ -63,6 +67,11 @@ export function NuevoPedidoPage() {
 
   const [lines, status, initialPayment] = useWatch({ control, name: ['lines', 'status', 'initialPayment'] })
   const totals = orderTotals(lines.map(toLineInput), parseCop(initialPayment) ?? 0)
+  const available = new Map((stock.data ?? []).map((item) => [item.productId, item.availableQty]))
+  const shortages = stockShortages(
+    lines.map((line) => ({ productId: line.productId, fromStock: line.fromStock, qty: toLineInput(line).qty })),
+    available,
+  )
 
   const addLine = () => {
     const previous = getValues('lines').at(-1)
@@ -130,6 +139,9 @@ export function NuevoPedidoPage() {
               key={field.id}
               index={index}
               products={products.data ?? []}
+              stock={available}
+              lastCosts={lastCosts.data ?? new Map()}
+              shortages={shortages}
               onRemove={fields.length > 1 ? () => remove(index) : undefined}
             />
           ))}

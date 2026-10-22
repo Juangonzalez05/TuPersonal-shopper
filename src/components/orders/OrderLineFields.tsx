@@ -1,4 +1,5 @@
-import { Trash2 } from 'lucide-react'
+import { AlertTriangle, Trash2 } from 'lucide-react'
+import { useId } from 'react'
 import { Controller, useFormContext, useWatch } from 'react-hook-form'
 import type { Product } from '@/api/products'
 import { Autocomplete } from '@/components/Autocomplete'
@@ -6,24 +7,41 @@ import { NumberField } from '@/components/NumberField'
 import { IncompleteBadge } from '@/components/orders/StatusBadges'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { formatCop, formatPercent, percentInputValue } from '@/lib/format'
+import { Switch } from '@/components/ui/switch'
+import { decimalInputValue, formatCop, formatPercent, percentInputValue } from '@/lib/format'
 import { toLineInput, type OrderFormValues } from '@/lib/order-form'
 import { lineTotals } from '@/lib/pricing'
+import { stockWarning, type Shortage } from '@/lib/stock'
 import { cn } from '@/lib/utils'
 
 type OrderLineFieldsProps = {
   index: number
   products: Product[]
+  /** Disponible por producto (v_stock). */
+  stock: Map<string, number>
+  /** Último costo USD de ingreso por producto, para prellenar si sale del inventario. */
+  lastCosts: Map<string, number>
+  /** Productos que no alcanzan, sumando todas las líneas del pedido. */
+  shortages: Map<string, Shortage>
   onRemove?: () => void
 }
 
 const missingLabel = { trm: 'falta TRM', pct: 'falta %' }
 
-export function OrderLineFields({ index, products, onRemove }: OrderLineFieldsProps) {
-  const { control, register, setValue, formState } = useFormContext<OrderFormValues>()
+export function OrderLineFields({ index, products, stock, lastCosts, shortages, onRemove }: OrderLineFieldsProps) {
+  const switchId = useId()
+  const { control, register, setValue, trigger, formState } = useFormContext<OrderFormValues>()
   const line = useWatch({ control, name: `lines.${index}` })
   const errors = formState.errors.lines?.[index]
   const totals = lineTotals(toLineInput(line))
+  const shortage = line.fromStock && line.productId ? shortages.get(line.productId) : undefined
+  const warning = shortage ? stockWarning(shortage.available, shortage.requested) : null
+
+  /** Si sale del inventario y el USD está vacío, usa el último costo de ingreso. */
+  const prefillCost = (productId: string) => {
+    const cost = lastCosts.get(productId)
+    if (cost !== undefined && line.usd.trim() === '') setValue(`lines.${index}.usd`, decimalInputValue(cost))
+  }
 
   return (
     <div className="grid gap-3 rounded-lg border p-3">
@@ -53,17 +71,24 @@ export function OrderLineFields({ index, products, onRemove }: OrderLineFieldsPr
                 renderOption={(p) => (
                   <span className="flex items-baseline justify-between gap-2">
                     <span>{p.name}</span>
-                    {p.defaultMarkup !== null && (
-                      <span className="text-sm text-muted-foreground">{formatPercent(p.defaultMarkup)}</span>
-                    )}
+                    <span className="shrink-0 text-sm text-muted-foreground">
+                      {[
+                        line.fromStock && `${stock.get(p.id) ?? 0} disp.`,
+                        p.defaultMarkup !== null && formatPercent(p.defaultMarkup),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
                   </span>
                 )}
                 onSelect={(p) => {
                   field.onChange(p.name)
-                  setValue(`lines.${index}.productId`, p.id)
+                  setValue(`lines.${index}.productId`, p.id, { shouldValidate: formState.isSubmitted })
                   if (p.defaultMarkup !== null) {
                     setValue(`lines.${index}.pct`, percentInputValue(p.defaultMarkup))
                   }
+                  if (line.fromStock) prefillCost(p.id)
+                  if (formState.isSubmitted) void trigger(`lines.${index}`)
                 }}
               />
             )}
@@ -87,9 +112,36 @@ export function OrderLineFields({ index, products, onRemove }: OrderLineFieldsPr
       ) : (
         line.description.trim() !== '' && (
           <p className="-mt-1 text-xs text-muted-foreground">
-            {line.productId ? 'Del catálogo' : 'Texto libre (no se liga a un producto del inventario)'}
+            {line.productId
+              ? line.fromStock
+                ? `Del inventario · ${stock.get(line.productId) ?? 0} disponibles`
+                : 'Del catálogo'
+              : line.fromStock
+                ? 'Elige un producto de la lista para sacarlo del inventario'
+                : 'Texto libre (no se liga a un producto del inventario)'}
           </p>
         )
+      )}
+
+      <div className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2">
+        <Label htmlFor={switchId}>Sale del inventario</Label>
+        <Switch
+          id={switchId}
+          checked={line.fromStock}
+          onCheckedChange={(checked) => {
+            setValue(`lines.${index}.fromStock`, checked)
+            if (checked && line.productId) prefillCost(line.productId)
+            if (formState.isSubmitted) void trigger(`lines.${index}`)
+          }}
+        />
+      </div>
+      {warning && (
+        <p className="-mt-1 flex items-center gap-1.5 text-sm text-amber-700">
+          <AlertTriangle className="size-4 shrink-0" />
+          {warning}
+          {/* Otras líneas piden el mismo producto: el aviso es por el total. */}
+          {shortage && shortage.requested !== toLineInput(line).qty && ` (${shortage.requested} en todo el pedido)`}
+        </p>
       )}
 
       <div className="grid grid-cols-2 gap-3">

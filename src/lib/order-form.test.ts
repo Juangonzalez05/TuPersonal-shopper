@@ -10,6 +10,7 @@ const caseA: OrderFormValues = {
   lines: [
     {
       productId: 'p-1',
+      fromStock: false,
       description: 'Crema Medicube',
       usd: '10',
       qty: '2',
@@ -65,6 +66,7 @@ describe('toCreateOrderArgs', () => {
           trm: 4000,
           markup_pct: 0.4,
           shipping_charged_cop: 15_000,
+          from_stock: false,
         },
       ],
       p_initial_payment_cop: 50_000,
@@ -95,6 +97,17 @@ describe('orderFormSchema', () => {
     expect(result.success).toBe(false)
     const paths = result.error!.issues.map((issue) => issue.path.join('.'))
     expect(paths).toEqual(expect.arrayContaining(['customerName', 'lines.0.description', 'lines.0.qty']))
+  })
+
+  it('"sale del inventario" exige un producto del catálogo', () => {
+    const freeText = { ...caseA.lines[0], productId: null, fromStock: true }
+    const result = orderFormSchema.safeParse({ ...caseA, lines: [freeText] })
+    expect(result.success).toBe(false)
+    expect(result.error!.issues.map((issue) => issue.path.join('.'))).toEqual(['lines.0.description'])
+
+    const fromCatalog = { ...caseA, lines: [{ ...caseA.lines[0], fromStock: true }] }
+    expect(orderFormSchema.safeParse(fromCatalog).success).toBe(true)
+    expect(toCreateOrderArgs(fromCatalog).p_items).toMatchObject([{ product_id: 'p-1', from_stock: true }])
   })
 
   it('rechaza números que no caben en la base', () => {

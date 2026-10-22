@@ -26,18 +26,25 @@ const optionalNumber = (max: number, message: string) =>
     return n !== null && n <= max
   }, message)
 
-const lineSchema = z.object({
-  productId: z.string().nullable(),
-  description: z.string().trim().min(1, 'Escribe o elige el producto.'),
-  usd: optionalNumber(MAX_DECIMAL, 'Valor en USD inválido.'),
-  qty: z.string().refine((value) => {
-    const n = parseDecimal(value)
-    return n !== null && Number.isInteger(n) && n >= 1 && n <= 100_000
-  }, 'Cantidad entera desde 1.'),
-  trm: optionalNumber(MAX_DECIMAL, 'TRM inválida.'),
-  pct: optionalNumber(MAX_PERCENT, '% inválido.'),
-  shipping: optionalNumber(MAX_DECIMAL, 'Valor inválido.'),
-})
+const lineSchema = z
+  .object({
+    productId: z.string().nullable(),
+    /** "Sale del inventario": descuenta del stock en vez de comprarse por encargo. */
+    fromStock: z.boolean(),
+    description: z.string().trim().min(1, 'Escribe o elige el producto.'),
+    usd: optionalNumber(MAX_DECIMAL, 'Valor en USD inválido.'),
+    qty: z.string().refine((value) => {
+      const n = parseDecimal(value)
+      return n !== null && Number.isInteger(n) && n >= 1 && n <= 100_000
+    }, 'Cantidad entera desde 1.'),
+    trm: optionalNumber(MAX_DECIMAL, 'TRM inválida.'),
+    pct: optionalNumber(MAX_PERCENT, '% inválido.'),
+    shipping: optionalNumber(MAX_DECIMAL, 'Valor inválido.'),
+  })
+  .refine((line) => !line.fromStock || line.productId !== null, {
+    path: ['description'],
+    message: 'Para sacar del inventario elige un producto del catálogo.',
+  })
 
 export const orderFormSchema = z.object({
   customerId: z.string().nullable(),
@@ -56,6 +63,7 @@ export type OrderLineValues = OrderFormValues['lines'][number]
 export function emptyLine(prefill: { trm?: number | null; markupPct?: number | null } = {}): OrderLineValues {
   return {
     productId: null,
+    fromStock: false,
     description: '',
     usd: '',
     qty: '1',
@@ -109,6 +117,7 @@ export function toCreateOrderArgs(values: OrderFormValues): CreateOrderArgs {
         trm: input.trm,
         markup_pct: input.markupPct,
         shipping_charged_cop: input.shippingChargedCop,
+        from_stock: line.fromStock,
       }
     }),
     p_initial_payment_cop: payment,
