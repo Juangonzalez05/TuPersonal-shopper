@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextShipmentCode } from './shipments'
+import { nextShipmentCode, shipmentFields, shipmentSubtitle } from './shipments'
 
 describe('nextShipmentCode', () => {
   it('empieza en ENV-001', () => {
@@ -16,5 +16,23 @@ describe('nextShipmentCode', () => {
 
   it('no se queda en tres dígitos', () => {
     expect(nextShipmentCode(['ENV-999'])).toBe('ENV-1000')
+  })
+})
+
+describe('shipmentFields', () => {
+  it('limpia lo escrito: código en mayúsculas y vacíos como null', () => {
+    expect(shipmentFields({ code: ' env-004 ', carrier: '  ', arrivedOn: '', notes: ' frágil ' })).toEqual({
+      code: 'ENV-004',
+      carrier: null,
+      arrivedOn: null,
+      notes: 'frágil',
+    })
+  })
+})
+
+describe('shipmentSubtitle', () => {
+  it('muestra courier y llegada, o que aún no llega', () => {
+    expect(shipmentSubtitle({ carrier: 'Aeropost', arrivedOn: '2026-10-22' })).toBe('Aeropost · llegó 22/10/2026')
+    expect(shipmentSubtitle({ carrier: null, arrivedOn: null })).toBe('sin fecha de llegada')
   })
 })
