@@ -5,3 +5,8 @@ export function errorMessage(error: unknown): string {
   }
   return 'Error desconocido'
 }
+
+/** true si Postgres rechazó un valor repetido en una columna única (código 23505). */
+export function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '23505')
+}

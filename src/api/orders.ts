@@ -47,6 +47,9 @@ export type OrderItem = {
   priceCop: number
   profitCop: number
   incomplete: boolean
+  shipmentId: string | null
+  /** Código de la caja en la que viaja, p. ej. "ENV-003". */
+  shipmentCode: string | null
 }
 
 export type Payment = {
@@ -62,7 +65,9 @@ export type OrderDetail = OrderSummary & { items: OrderItem[]; payments: Payment
 type OrderRow = Database['public']['Views']['v_orders']['Row'] & {
   customer: { name: string; phone: string | null } | null
 }
-type OrderItemRow = Database['public']['Views']['v_order_items']['Row']
+type OrderItemRow = Database['public']['Views']['v_order_items']['Row'] & {
+  shipment: { code: string } | null
+}
 
 const ORDER_SELECT = '*, customer:customers(name, phone)'
 
@@ -101,6 +106,8 @@ function toOrderItem(row: OrderItemRow): OrderItem {
     priceCop: row.price_cop ?? 0,
     profitCop: row.profit_cop ?? 0,
     incomplete: row.incomplete ?? false,
+    shipmentId: row.shipment_id,
+    shipmentCode: row.shipment?.code ?? null,
   }
 }
 
@@ -127,7 +134,11 @@ export function useOrder(id: string) {
     queryFn: async (): Promise<OrderDetail | null> => {
       const [order, items, payments] = await Promise.all([
         supabase.from('v_orders').select(ORDER_SELECT).eq('id', id).maybeSingle(),
-        supabase.from('v_order_items').select('*').eq('order_id', id).order('created_at'),
+        supabase
+          .from('v_order_items')
+          .select('*, shipment:shipments(code)')
+          .eq('order_id', id)
+          .order('created_at'),
         supabase
           .from('payments')
           .select('id, amount_cop, paid_on, method, note')
@@ -141,7 +152,7 @@ export function useOrder(id: string) {
       if (!order.data) return null
       return {
         ...toOrderSummary(order.data as OrderRow),
-        items: items.data.map(toOrderItem),
+        items: (items.data as OrderItemRow[]).map(toOrderItem),
         payments: payments.data.map((p) => ({
           id: p.id,
           amountCop: p.amount_cop,

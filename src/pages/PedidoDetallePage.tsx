@@ -1,12 +1,13 @@
-import { Copy, Trash2 } from 'lucide-react'
+import { Copy, Package, Trash2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { useOrder, useUpdateOrderStatus, type OrderDetail } from '@/api/orders'
 import { useDeletePayment } from '@/api/payments'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PaymentForm } from '@/components/orders/PaymentForm'
 import { DeliveryBadge, IncompleteBadge, PaymentBadge } from '@/components/orders/StatusBadges'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { copyText } from '@/lib/clipboard'
@@ -129,12 +130,24 @@ function OrderView({ order }: { order: OrderDetail }) {
                   : 'Sin costo para ti'}
                 {item.shippingChargedCop > 0 && ` · envío ${formatCop(item.shippingChargedCop)}`}
               </p>
-              {item.incomplete && (
-                <IncompleteBadge>
-                  {`Incompleta · ${[item.trm === 0 && 'falta TRM', item.markupPct === null && 'falta %']
-                    .filter(Boolean)
-                    .join(' y ')}`}
-                </IncompleteBadge>
+              {(item.shipmentId || item.incomplete) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {item.shipmentId && (
+                    <Badge asChild variant="outline">
+                      <Link to={`/cajas/${item.shipmentId}`}>
+                        <Package />
+                        Caja {item.shipmentCode}
+                      </Link>
+                    </Badge>
+                  )}
+                  {item.incomplete && (
+                    <IncompleteBadge>
+                      {`Incompleta · ${[item.trm === 0 && 'falta TRM', item.markupPct === null && 'falta %']
+                        .filter(Boolean)
+                        .join(' y ')}`}
+                    </IncompleteBadge>
+                  )}
+                </div>
               )}
             </li>
           ))}
