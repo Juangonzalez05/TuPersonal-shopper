@@ -1,5 +1,5 @@
 import { ArrowLeft, LogOut } from 'lucide-react'
-import { Outlet, useMatches, useNavigate } from 'react-router'
+import { Outlet, useMatches, useNavigate, type Params } from 'react-router'
 import { useAuth } from '@/auth/auth-context'
 import { Button } from '@/components/ui/button'
 import { BottomNav } from './BottomNav'
@@ -8,17 +8,16 @@ import { BottomNav } from './BottomNav'
 export type RouteHandle = {
   title: string
   /** Si existe, muestra "volver" (a la página anterior o, si no hay, a esta ruta). */
-  back?: string
+  back?: string | ((params: Params) => string)
 }
 
 export function AppLayout() {
   const { signOut } = useAuth()
   const navigate = useNavigate()
-  const handle = useMatches()
-    .map((match) => match.handle as RouteHandle | undefined)
-    .findLast(Boolean)
+  const match = useMatches().findLast((m) => m.handle)
+  const handle = match?.handle as RouteHandle | undefined
   const title = handle?.title ?? 'Tu Shopper USA'
-  const back = handle?.back
+  const back = typeof handle?.back === 'function' ? handle.back(match!.params) : handle?.back
 
   const goBack = () => {
     // React Router guarda la posición en el historial; idx 0 = se entró directo a esta URL.
