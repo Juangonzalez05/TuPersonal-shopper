@@ -1,7 +1,29 @@
+# Dependencias y build
 node_modules
 dist
-.DS_Store
+dist-ssr
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Entorno (solo se versiona el ejemplo)
 .env
 .env.*
 !.env.example
+*.local
+
+# Supabase CLI
 supabase/.temp
+
+# Excel con datos del negocio: solo local
+docs/*.xlsx
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.sw?
