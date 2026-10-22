@@ -1,4 +1,4 @@
-import { Copy, Package, Trash2 } from 'lucide-react'
+import { Boxes, Copy, Package, Trash2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -130,8 +130,16 @@ function OrderView({ order }: { order: OrderDetail }) {
                   : 'Sin costo para ti'}
                 {item.shippingChargedCop > 0 && ` · envío ${formatCop(item.shippingChargedCop)}`}
               </p>
-              {(item.shipmentId || item.incomplete) && (
+              {(item.fromStock || item.shipmentId || item.incomplete) && (
                 <div className="flex flex-wrap gap-1.5">
+                  {item.fromStock && (
+                    <Badge asChild variant="outline">
+                      <Link to={`/inventario/${item.productId}`}>
+                        <Boxes />
+                        Del inventario
+                      </Link>
+                    </Badge>
+                  )}
                   {item.shipmentId && (
                     <Badge asChild variant="outline">
                       <Link to={`/cajas/${item.shipmentId}`}>
