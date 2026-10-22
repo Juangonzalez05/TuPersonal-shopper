@@ -4,12 +4,14 @@ import {
   formatCop,
   formatDate,
   formatPercent,
+  formatPhone,
   formatTrm,
   formatUsd,
   parseCop,
   parseDecimal,
   parsePercent,
   percentInputValue,
+  phoneDigits,
   todayBogota,
 } from './format'
 
@@ -87,6 +89,14 @@ describe('parseCop y parsePercent', () => {
     expect(parsePercent('40')).toBe(0.4)
     expect(parsePercent('35,5')).toBe(0.355)
     expect(parsePercent('')).toBeNull()
+  })
+})
+
+describe('teléfonos', () => {
+  it('guarda solo dígitos y muestra el celular en grupos', () => {
+    expect(phoneDigits('300 123-4567')).toBe('3001234567')
+    expect(formatPhone('3001234567')).toBe('300 123 4567')
+    expect(formatPhone('6011234567')).toBe('6011234567')
   })
 })
 

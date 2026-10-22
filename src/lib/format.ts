@@ -68,6 +68,14 @@ export function parsePercent(text: string): number | null {
   return value === null ? null : Math.round(value * 100) / 10_000
 }
 
+/** Solo los dígitos de un teléfono, como se guarda: "300 123-4567" → "3001234567". */
+export const phoneDigits = (text: string) => text.replace(/\D/g, '')
+
+/** Celular colombiano legible: "3001234567" → "300 123 4567". Otros formatos quedan igual. */
+export function formatPhone(phone: string): string {
+  return /^3\d{9}$/.test(phone) ? `${phone.slice(0, 3)} ${phone.slice(3, 6)} ${phone.slice(6)}` : phone
+}
+
 /** Número a texto editable que parseDecimal vuelve a leer igual: 4123.45 → "4123,45". */
 export const decimalInputValue = (value: number) => String(value).replace('.', ',')
 
