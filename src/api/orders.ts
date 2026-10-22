@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { customerKeys } from '@/api/customers'
 import { productKeys } from '@/api/products'
+import { stockKeys } from '@/api/stock'
 import { isDeliveryStatus, isPaymentStatus, type DeliveryStatus } from '@/lib/order-labels'
 import type { PaymentStatus } from '@/lib/pricing'
 import { supabase } from '@/lib/supabase'
@@ -47,6 +48,8 @@ export type OrderItem = {
   priceCop: number
   profitCop: number
   incomplete: boolean
+  /** Sale del inventario (no se compra por encargo). */
+  fromStock: boolean
   shipmentId: string | null
   /** Código de la caja en la que viaja, p. ej. "ENV-003". */
   shipmentCode: string | null
@@ -106,6 +109,7 @@ function toOrderItem(row: OrderItemRow): OrderItem {
     priceCop: row.price_cop ?? 0,
     profitCop: row.profit_cop ?? 0,
     incomplete: row.incomplete ?? false,
+    fromStock: row.from_stock ?? false,
     shipmentId: row.shipment_id,
     shipmentCode: row.shipment?.code ?? null,
   }
@@ -209,6 +213,7 @@ export function useCreateOrder() {
       void queryClient.invalidateQueries({ queryKey: orderKeys.all })
       void queryClient.invalidateQueries({ queryKey: customerKeys.all })
       void queryClient.invalidateQueries({ queryKey: productKeys.all })
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all })
     },
   })
 }
@@ -220,6 +225,10 @@ export function useUpdateOrderStatus(orderId: string) {
       const { error } = await supabase.from('orders').update({ status }).eq('id', orderId)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: orderKeys.all }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.all })
+      // Anular o confirmar cambia lo que descuenta el inventario.
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all })
+    },
   })
 }
