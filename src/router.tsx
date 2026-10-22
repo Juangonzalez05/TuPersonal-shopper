@@ -9,6 +9,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { NuevoPedidoPage } from '@/pages/NuevoPedidoPage'
 import { PedidoDetallePage } from '@/pages/PedidoDetallePage'
 import { PedidosPage } from '@/pages/PedidosPage'
+import { ProductoInventarioPage } from '@/pages/ProductoInventarioPage'
 import { ResumenPage } from '@/pages/ResumenPage'
 
 const handle = (title: string, back?: RouteHandle['back']): RouteHandle => ({ title, back })
@@ -33,6 +34,11 @@ export const router = createBrowserRouter([
             handle: handle('Agregar productos', (params) => `/cajas/${params.shipmentId}`),
           },
           { path: 'inventario', element: <InventarioPage />, handle: handle('Inventario') },
+          {
+            path: 'inventario/:productId',
+            element: <ProductoInventarioPage />,
+            handle: handle('Producto', '/inventario'),
+          },
           { path: 'resumen', element: <ResumenPage />, handle: handle('Resumen') },
           { path: '*', element: <Navigate to="/pedidos" replace /> },
         ],
