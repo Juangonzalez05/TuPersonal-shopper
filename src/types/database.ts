@@ -511,7 +511,20 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      create_order: {
+        Args: {
+          p_customer_id?: string
+          p_customer_name?: string
+          p_customer_phone?: string
+          p_initial_payment_cop?: number
+          p_items: Json
+          p_notes?: string
+          p_ordered_on?: string
+          p_payment_method?: string
+          p_status?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
