@@ -37,6 +37,20 @@ export const deliveryStatusClass: Record<DeliveryStatus, string> = {
 export const isDeliveryStatus = (value: string | null): value is DeliveryStatus =>
   DELIVERY_STATUSES.includes(value as DeliveryStatus)
 
+/** Ya se compró: si una línea así no tiene caja, su envío cobrado no está en ninguna caja. */
+export const PURCHASED_STATUSES = [
+  'comprado',
+  'en_transito',
+  'en_colombia',
+  'entregado',
+] as const satisfies readonly DeliveryStatus[]
+
+/** Pedidos cuyas líneas se pueden meter a una caja (no cotizaciones ni anulados). */
+export const ASSIGNABLE_STATUSES = ['confirmado', ...PURCHASED_STATUSES] as const satisfies readonly DeliveryStatus[]
+
+export const isPurchasedStatus = (status: DeliveryStatus) =>
+  (PURCHASED_STATUSES as readonly DeliveryStatus[]).includes(status)
+
 // Estado de PAGO (derivado del saldo en v_orders / pricing.ts).
 export const PAYMENT_STATUSES = ['pendiente', 'separado', 'pagado'] as const satisfies readonly PaymentStatus[]
 
