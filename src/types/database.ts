@@ -39,6 +39,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_members: {
+        Row: {
+          created_at: string
+          member_id: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          member_id: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          member_id?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           created_at: string
@@ -525,6 +543,7 @@ export type Database = {
         }
         Returns: string
       }
+      current_owner_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
