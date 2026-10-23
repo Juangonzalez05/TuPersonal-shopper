@@ -13,7 +13,7 @@ export default defineConfig({
     // nunca a mitad de un pedido. Solo se guarda la app; los datos de Supabase siempre son en línea.
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Tu Shopper USA',
         short_name: 'Tu Shopper',
@@ -24,7 +24,8 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         theme_color: '#ffffff',
-        background_color: '#ffffff',
+        // Pantalla de arranque en el azul del logo.
+        background_color: '#010e2e',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
