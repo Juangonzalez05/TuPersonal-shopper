@@ -43,15 +43,19 @@ export function BottomNav() {
                 to={to}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors',
+                  'relative flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground',
                 )}
               >
+                {/* Barrita dorada sobre la sección activa. */}
+                {isActive && !primary && (
+                  <span aria-hidden className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-gold" />
+                )}
                 {primary ? (
                   <span
                     className={cn(
-                      'flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md',
-                      isActive && 'ring-2 ring-primary/30 ring-offset-2 ring-offset-background',
+                      'flex size-10 items-center justify-center rounded-full bg-primary text-gold shadow-md',
+                      isActive && 'ring-2 ring-gold ring-offset-2 ring-offset-background',
                     )}
                   >
                     <Icon className="size-6" strokeWidth={2.5} />

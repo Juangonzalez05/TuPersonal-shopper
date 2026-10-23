@@ -38,11 +38,19 @@ export function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-sm">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-navy p-4">
+      <img
+        src="/pwa-512x512.png"
+        alt="Tu Shopper USA"
+        width={160}
+        height={160}
+        className="size-40 rounded-full shadow-lg shadow-black/40"
+      />
+      <Card className="w-full max-w-sm border-t-2 border-t-gold">
         <CardHeader>
-          <CardTitle className="text-2xl">Tu Shopper USA</CardTitle>
-          <CardDescription>Entra con tu correo y contraseña.</CardDescription>
+          {/* El logo ya dice el nombre; el título queda para lectores de pantalla. */}
+          <CardTitle className="sr-only">Tu Shopper USA</CardTitle>
+          <CardDescription className="text-base text-foreground">Entra con tu correo y contraseña.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-5">
