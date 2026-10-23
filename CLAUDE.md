@@ -12,7 +12,13 @@ App web **móvil-first (PWA)** para una personal shopper en Colombia que trae pr
 ## Reglas de oro
 1. **Dinero**: COP siempre entero (`bigint` en BD, `number` entero en TS), nunca decimales. USD con 2 decimales. Porcentajes como fracción (0.40 = 40 %).
 2. **Las fórmulas son las del Excel** (ver `ROADMAP.md` §4). Viven en las vistas SQL (`v_order_items`, `v_orders`, `v_shipments`, `v_stock`) y en UNA función TS pura `src/lib/pricing.ts` para el cálculo en vivo del formulario. Ambas deben coincidir; hay tests con los casos del roadmap.
-3. **Seguridad**: RLS activo en todas las tablas, políticas por `owner_id`. En el front solo la `anon key`; **jamás** la `service_role`. Registro público desactivado.
+3. **Seguridad**: RLS activo en todas las tablas, políticas por `owner_id = (select public.current_owner_id())` y `owner_id` con ese mismo default. En el front solo la `anon key`; **jamás** la `service_role`. Registro público desactivado. El repo es público: nada de correos, ids de usuarios ni datos del negocio en migraciones o commits.
+8. **Cuenta compartida**: varias personas pueden trabajar sobre los mismos datos. `public.account_members` dice de quién es "miembro" cada usuario y `current_owner_id()` devuelve ese dueño (o el propio usuario si no es miembro). Para dar acceso a otra cuenta (ya creada en Auth), correr una sola vez con `npx supabase db query --linked` — sin commitearlo:
+   ```sql
+   insert into public.account_members (member_id, owner_id)
+   select m.id, o.id from auth.users m, auth.users o
+   where m.email = '<correo del miembro>' and o.email = '<correo de la dueña>';
+   ```
 4. **Migraciones**: todo cambio de esquema va en `supabase/migrations/` con archivo nuevo. No editar migraciones ya aplicadas. Regenerar tipos TS tras cada cambio.
 5. **Vocabulario**: en Colombia "cancelado" = "pagado". Estado de pago: `pendiente | separado | pagado`. Pedido anulado = `anulado`.
 6. **UI en español (es-CO)**: miles con punto (`1.234.567`), fechas `dd/MM/yyyy`, zona `America/Bogota`. Inputs numéricos con `inputMode="decimal"`. Botones grandes, navegación inferior, funcionar bien a 360 px de ancho.
@@ -25,4 +31,6 @@ App web **móvil-first (PWA)** para una personal shopper en Colombia que trae pr
 
 ## Comandos (ajustar al crear el proyecto)
 - `npm run dev` · `npm run test` · `npm run build`
-- `supabase db push` (aplicar migraciones) · `supabase gen types typescript --linked > src/types/database.ts`
+- `npx supabase db push` (aplicar migraciones) · `npm run db:types` (regenerar `src/types/database.ts`)
+- Pruebas SQL contra la base (deshacen sus datos): `npx supabase db query --linked -f supabase/tests/<prueba>.sql`
+- `npm run pwa:assets` (regenerar íconos de la PWA desde `public/logo.jpg`)

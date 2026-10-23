@@ -1,13 +1,17 @@
 import { defineConfig, minimal2023Preset as preset } from '@vite-pwa/assets-generator/config'
 
-// Genera los íconos de la PWA desde public/icon.svg: npm run pwa:assets
-// El maskable y el de Apple llevan el fondo oscuro del ícono para que no salga un borde blanco,
-// y poco relleno porque el SVG ya trae su margen (la bolsa queda dentro de la zona segura).
+// Genera los íconos de la PWA desde el logo: npm run pwa:assets
+// El logo ya es un cuadrado azul marino a sangre, así que los íconos normales van sin margen.
+// El maskable lleva margen para que el aro dorado quede dentro de la zona segura (círculo
+// central del 80 %), y el de Apple un poco de aire; ambos con el azul del logo de fondo.
+const navy = '#010e2e'
+
 export default defineConfig({
   preset: {
     ...preset,
-    maskable: { ...preset.maskable, padding: 0.1, resizeOptions: { background: '#171717' } },
-    apple: { ...preset.apple, padding: 0.1, resizeOptions: { background: '#171717' } },
+    transparent: { ...preset.transparent, padding: 0 },
+    maskable: { ...preset.maskable, padding: 0.12, resizeOptions: { background: navy } },
+    apple: { ...preset.apple, padding: 0.04, resizeOptions: { background: navy } },
   },
-  images: ['public/icon.svg'],
+  images: ['public/logo.jpg'],
 })

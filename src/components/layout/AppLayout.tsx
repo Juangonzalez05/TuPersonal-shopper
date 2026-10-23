@@ -1,5 +1,5 @@
 import { ArrowLeft, LogOut } from 'lucide-react'
-import { Outlet, useMatches, useNavigate, type Params } from 'react-router'
+import { Link, Outlet, useMatches, useNavigate, type Params } from 'react-router'
 import { useAuth } from '@/auth/auth-context'
 import { Button } from '@/components/ui/button'
 import { BottomNav } from './BottomNav'
@@ -30,13 +30,17 @@ export function AppLayout() {
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-10 border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-2 px-4">
-          <div className="flex min-w-0 items-center gap-1">
-            {back && (
+          <div className="flex min-w-0 items-center gap-2">
+            {back ? (
               <Button variant="ghost" size="icon" className="-ml-2 size-10" aria-label="Volver" onClick={goBack}>
                 <ArrowLeft className="size-5" />
               </Button>
+            ) : (
+              <Link to="/pedidos" className="shrink-0" aria-label="Tu Shopper USA, ir a Pedidos">
+                <img src="/pwa-64x64.png" alt="" width={32} height={32} className="size-8 rounded-full" />
+              </Link>
             )}
-            <h1 className="truncate text-lg font-semibold">{title}</h1>
+            <h1 className="truncate text-lg font-semibold text-primary">{title}</h1>
           </div>
           <Button variant="ghost" size="sm" className="h-10" onClick={() => void signOut()}>
             <LogOut />
