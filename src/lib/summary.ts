@@ -36,10 +36,10 @@ export type Summary = {
 }
 
 /** "2026-10-22" → "2026-10" */
-const monthOf = (isoDate: string) => isoDate.slice(0, 7)
+export const monthOf = (isoDate: string) => isoDate.slice(0, 7)
 
 /** Mes de una caja: el de llegada o, si aún no tiene, el de creación en hora de Bogotá. */
-const shipmentMonth = (shipment: Shipment) =>
+export const shipmentMonth = (shipment: Shipment) =>
   monthOf(shipment.arrivedOn ?? todayBogota(new Date(shipment.createdAt)))
 
 const sum = <T>(items: T[], pick: (item: T) => number) => items.reduce((total, item) => total + pick(item), 0)
