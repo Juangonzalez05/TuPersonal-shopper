@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchAll } from '@/api/fetch-all'
 import { isDeliveryStatus, type DeliveryStatus } from '@/lib/order-labels'
 import { isStockState, type StockState } from '@/lib/stock'
 import { supabase } from '@/lib/supabase'
@@ -83,9 +84,10 @@ export function useStock() {
   return useQuery({
     queryKey: stockKeys.list,
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_stock').select('*').order('name')
-      if (error) throw error
-      return data.map(toStockItem)
+      const rows = await fetchAll((from, to) =>
+        supabase.from('v_stock').select('*').order('name').order('product_id').range(from, to),
+      )
+      return rows.map(toStockItem)
     },
   })
 }

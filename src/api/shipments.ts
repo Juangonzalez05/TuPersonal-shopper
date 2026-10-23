@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchAll } from '@/api/fetch-all'
 import { orderKeys } from '@/api/orders'
 import { ASSIGNABLE_STATUSES, isDeliveryStatus, type DeliveryStatus } from '@/lib/order-labels'
 import type { ShipmentState } from '@/lib/shipments'
@@ -27,6 +28,8 @@ export type Shipment = {
   state: ShipmentState
   /** cobrado − costo real; null mientras está por cerrar. */
   differenceCop: number | null
+  /** Momento de creación (ISO); define el mes de una caja que aún no tiene llegada. */
+  createdAt: string
 }
 
 /** Línea de pedido vista desde las cajas. */
@@ -68,6 +71,7 @@ function toShipment(row: ShipmentRow): Shipment {
     chargedCop: row.charged_cop ?? 0,
     state: row.state === 'cerrada' ? 'cerrada' : 'por_cerrar',
     differenceCop: row.difference_cop,
+    createdAt: row.created_at ?? '',
   }
 }
 
@@ -90,14 +94,17 @@ export function useShipments() {
   return useQuery({
     queryKey: shipmentKeys.list,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_shipments')
-        .select('*')
-        .order('arrived_on', { ascending: false, nullsFirst: true })
-        .order('created_at', { ascending: false })
-      if (error) throw error
+      const rows = await fetchAll((from, to) =>
+        supabase
+          .from('v_shipments')
+          .select('*')
+          .order('arrived_on', { ascending: false, nullsFirst: true })
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(from, to),
+      )
       // Primero las que faltan por cerrar; el orden de arriba se conserva dentro de cada grupo.
-      return data
+      return rows
         .map(toShipment)
         .sort((a, b) => Number(a.state === 'cerrada') - Number(b.state === 'cerrada'))
     },
@@ -125,15 +132,18 @@ export function useUnboxedItems() {
   return useQuery({
     queryKey: shipmentKeys.unboxed,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('order_items')
-        .select(ITEM_SELECT)
-        .is('shipment_id', null)
-        .eq('from_stock', false)
-        .in('order.status', [...ASSIGNABLE_STATUSES])
-        .order('created_at')
-      if (error) throw error
-      return (data as BoxItemRow[]).map(toBoxItem)
+      const rows = await fetchAll((from, to) =>
+        supabase
+          .from('order_items')
+          .select(ITEM_SELECT)
+          .is('shipment_id', null)
+          .eq('from_stock', false)
+          .in('order.status', [...ASSIGNABLE_STATUSES])
+          .order('created_at')
+          .order('id')
+          .range(from, to),
+      )
+      return (rows as BoxItemRow[]).map(toBoxItem)
     },
   })
 }

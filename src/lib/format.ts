@@ -32,6 +32,14 @@ export function formatDate(isoDate: string): string {
   return `${day}/${month}/${year}`
 }
 
+const monthFormat = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric', timeZone: 'UTC' })
+
+/** "2026-10" → "octubre de 2026" */
+export function formatMonth(month: string): string {
+  const [year, monthNumber] = month.split('-').map(Number)
+  return monthFormat.format(new Date(Date.UTC(year, monthNumber - 1, 1)))
+}
+
 /** Fecha de hoy en Bogotá como "yyyy-MM-dd". */
 export function todayBogota(now = new Date()): string {
   return isoDateFormat.format(now)

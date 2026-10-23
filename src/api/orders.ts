@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { customerKeys } from '@/api/customers'
+import { fetchAll } from '@/api/fetch-all'
 import { productKeys } from '@/api/products'
 import { stockKeys } from '@/api/stock'
 import { isDeliveryStatus, isPaymentStatus, type DeliveryStatus } from '@/lib/order-labels'
@@ -121,13 +122,16 @@ export function useOrders() {
   return useQuery({
     queryKey: orderKeys.list,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_orders')
-        .select(ORDER_SELECT)
-        .order('ordered_on', { ascending: false })
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return (data as OrderRow[]).map(toOrderSummary)
+      const rows = await fetchAll((from, to) =>
+        supabase
+          .from('v_orders')
+          .select(ORDER_SELECT)
+          .order('ordered_on', { ascending: false })
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(from, to),
+      )
+      return (rows as OrderRow[]).map(toOrderSummary)
     },
   })
 }
@@ -167,6 +171,37 @@ export function useOrder(id: string) {
       }
     },
   })
+}
+
+/** Una línea de pedido con lo necesario para el CSV "Productos vendidos". */
+export type OrderLineExport = OrderItem & {
+  orderedOn: string
+  orderStatus: DeliveryStatus
+  customerName: string
+}
+
+type OrderLineExportRow = OrderItemRow & {
+  order: { ordered_on: string; status: string; customer: { name: string } | null }
+}
+
+/** Todas las líneas de pedidos, por fecha del pedido. Se pide solo al exportar. */
+export async function fetchOrderLines(): Promise<OrderLineExport[]> {
+  const rows = await fetchAll((from, to) =>
+    supabase
+      .from('v_order_items')
+      .select('*, order:orders!inner(ordered_on, status, customer:customers(name)), shipment:shipments(code)')
+      .order('created_at')
+      .order('id')
+      .range(from, to),
+  )
+  return (rows as OrderLineExportRow[])
+    .map((row) => ({
+      ...toOrderItem(row),
+      orderedOn: row.order.ordered_on,
+      orderStatus: isDeliveryStatus(row.order.status) ? row.order.status : 'cotizado',
+      customerName: row.order.customer?.name ?? '—',
+    }))
+    .sort((a, b) => a.orderedOn.localeCompare(b.orderedOn))
 }
 
 /** Última TRM y último % usados, para prellenar el formulario. */
