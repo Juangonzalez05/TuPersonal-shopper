@@ -100,6 +100,7 @@ export type Database = {
           store: string | null
           trm: number
           unit_cost_usd: number
+          unit_price_cop: number | null
         }
         Insert: {
           created_at?: string
@@ -116,6 +117,7 @@ export type Database = {
           store?: string | null
           trm?: number
           unit_cost_usd?: number
+          unit_price_cop?: number | null
         }
         Update: {
           created_at?: string
@@ -132,6 +134,7 @@ export type Database = {
           store?: string | null
           trm?: number
           unit_cost_usd?: number
+          unit_price_cop?: number | null
         }
         Relationships: [
           {
@@ -303,30 +306,36 @@ export type Database = {
           carrier: string | null
           code: string
           created_at: string
+          expected_on: string | null
           id: string
           notes: string | null
           owner_id: string
           real_cost_cop: number | null
+          shipped_on: string | null
         }
         Insert: {
           arrived_on?: string | null
           carrier?: string | null
           code: string
           created_at?: string
+          expected_on?: string | null
           id?: string
           notes?: string | null
           owner_id?: string
           real_cost_cop?: number | null
+          shipped_on?: string | null
         }
         Update: {
           arrived_on?: string | null
           carrier?: string | null
           code?: string
           created_at?: string
+          expected_on?: string | null
           id?: string
           notes?: string | null
           owner_id?: string
           real_cost_cop?: number | null
+          shipped_on?: string | null
         }
         Relationships: []
       }
@@ -411,6 +420,7 @@ export type Database = {
           from_stock: boolean | null
           id: string | null
           incomplete: boolean | null
+          markup_effective: number | null
           markup_pct: number | null
           order_id: string | null
           owner_id: string | null
@@ -423,6 +433,7 @@ export type Database = {
           store: string | null
           trm: number | null
           unit_cost_usd: number | null
+          unit_price_cop: number | null
         }
         Relationships: [
           {
@@ -506,12 +517,15 @@ export type Database = {
           code: string | null
           created_at: string | null
           difference_cop: number | null
+          expected_on: string | null
           id: string | null
           items_count: number | null
           notes: string | null
           owner_id: string | null
           real_cost_cop: number | null
+          shipped_on: string | null
           state: string | null
+          stock_units: number | null
         }
         Relationships: []
       }
@@ -519,6 +533,7 @@ export type Database = {
         Row: {
           available_qty: number | null
           entered_qty: number | null
+          in_transit_qty: number | null
           name: string | null
           owner_id: string | null
           product_id: string | null
@@ -543,7 +558,31 @@ export type Database = {
         }
         Returns: string
       }
+      create_shipment: {
+        Args: {
+          p_carrier?: string
+          p_code: string
+          p_expected_on?: string
+          p_notes?: string
+          p_real_cost_cop?: number
+          p_shipped_on?: string
+          p_stock?: Json
+        }
+        Returns: string
+      }
       current_owner_id: { Args: never; Returns: string }
+      update_order: {
+        Args: {
+          p_customer_id?: string
+          p_customer_name?: string
+          p_customer_phone?: string
+          p_items: Json
+          p_notes?: string
+          p_order_id: string
+          p_ordered_on?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

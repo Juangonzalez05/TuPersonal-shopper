@@ -27,3 +27,6 @@ docs/*.xlsx
 .DS_Store
 *.suo
 *.sw?
+
+# Archivos personales que no van al repo público
+*.pdf

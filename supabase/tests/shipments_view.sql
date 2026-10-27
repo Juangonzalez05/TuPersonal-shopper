@@ -34,18 +34,18 @@ begin
            (v_owner, v_active,    'Línea 2', 1, 12000, v_box),
            (v_owner, v_cancelled, 'Anulada', 1,  9000, v_box);
 
-    -- Por cerrar: productos / cobrado / estado / diferencia
+    -- En camino y sin costo: productos / cobrado / estado / diferencia
     select format('%s/%s/%s/%s', items_count, charged_cop, state, coalesce(difference_cop::text, 'null'))
       into v_got from public.v_shipments where id = v_box;
-    assert v_got = '2/27000/por_cerrar/null', 'Caja por cerrar: ' || v_got;
+    assert v_got = '2/27000/en_camino/null', 'Caja sin costo: ' || v_got;
 
     update public.shipments set real_cost_cop = 20000 where id = v_box;
     select format('%s/%s', state, difference_cop) into v_got from public.v_shipments where id = v_box;
-    assert v_got = 'cerrada/7000', 'Caja con ganancia: ' || v_got;
+    assert v_got = 'en_camino/7000', 'Caja con ganancia (aún en camino): ' || v_got;
 
-    update public.shipments set real_cost_cop = 30000 where id = v_box;
+    update public.shipments set real_cost_cop = 30000, arrived_on = current_date where id = v_box;
     select format('%s/%s', state, difference_cop) into v_got from public.v_shipments where id = v_box;
-    assert v_got = 'cerrada/-3000', 'Caja con pérdida: ' || v_got;
+    assert v_got = 'llego/-3000', 'Caja que llegó con pérdida: ' || v_got;
 
     raise exception 'deshacer datos de prueba' using errcode = 'P0099';
   exception
