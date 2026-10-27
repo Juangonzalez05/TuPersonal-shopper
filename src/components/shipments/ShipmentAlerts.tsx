@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import type { BoxItem } from '@/api/shipments'
 import { formatDate } from '@/lib/format'
 
-/** Avisos de la pantalla Cajas: productos comprados sin caja y cajas por cerrar. */
+/** Avisos de la pantalla Cajas: productos comprados sin caja y cajas sin costo del envío. */
 export function ShipmentAlerts({ unboxedPurchased, openCount }: { unboxedPurchased: BoxItem[]; openCount: number }) {
   if (unboxedPurchased.length === 0 && openCount === 0) return null
 
@@ -32,8 +32,8 @@ export function ShipmentAlerts({ unboxedPurchased, openCount }: { unboxedPurchas
       {openCount > 0 && (
         <p className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 font-medium text-amber-950">
           <AlertTriangle className="size-4 shrink-0" />
-          {openCount === 1 ? '1 caja por cerrar' : `${openCount} cajas por cerrar`}
-          <span className="font-normal">· escribe su costo real cuando llegue.</span>
+          {openCount === 1 ? '1 caja sin costo de envío' : `${openCount} cajas sin costo de envío`}
+          <span className="font-normal">· escríbelo para ver la ganancia del envío.</span>
         </p>
       )}
     </div>

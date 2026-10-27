@@ -75,12 +75,12 @@ export function ResumenPage() {
 
       <SummaryCard title="Lo que me cuesta">
         <SummaryRow label="Productos (USD × TRM)" value={s.costs.productsCop} />
-        <SummaryRow label="Cajas de envío ya cerradas (costo real)" value={s.costs.closedShipmentsCop} />
+        <SummaryRow label="Envío de las cajas (las que ya tienen costo)" value={s.costs.shippingCostCop} />
       </SummaryCard>
 
       <SummaryCard title="Mi ganancia">
         <SummaryRow label="Ganancia de los productos" value={s.profit.productsCop} signed />
-        <SummaryRow label="Ganancia de los envíos (cajas cerradas)" value={s.profit.shippingCop} signed />
+        <SummaryRow label="Ganancia de los envíos (cajas con costo)" value={s.profit.shippingCop} signed />
         <SummaryRow label="Ganancia total" value={s.profit.totalCop} strong signed />
       </SummaryCard>
 
@@ -103,8 +103,9 @@ export function ResumenPage() {
       </SummaryCard>
 
       <SummaryCard title="Cajas de envío">
-        <SummaryRow label="Cajas cerradas" value={s.shipments.closed} kind="count" to="/cajas" />
-        <SummaryRow label="Cajas por cerrar (falta el costo real)" value={s.shipments.open} kind="count" to="/cajas" />
+        <SummaryRow label="Cajas que llegaron" value={s.shipments.arrived} kind="count" to="/cajas" />
+        <SummaryRow label="Cajas en camino" value={s.shipments.inTransit} kind="count" to="/cajas" />
+        <SummaryRow label="Cajas sin costo de envío" value={s.shipments.withoutCost} kind="count" to="/cajas" />
         <SummaryRow
           label="Envío cobrado que aún no tiene caja"
           value={s.shipments.unboxedShippingCop}
@@ -115,6 +116,12 @@ export function ResumenPage() {
       <SummaryCard title="Inventario" note="hoy">
         <SummaryRow label="Productos registrados" value={s.stock.products} kind="count" to="/inventario" />
         <SummaryRow label="Unidades disponibles" value={s.stock.availableUnits} kind="count" />
+        <SummaryRow
+          label="Unidades en camino"
+          value={s.stock.inTransitUnits}
+          kind="count"
+          to="/inventario?estado=en_camino"
+        />
         <SummaryRow
           label="Productos agotados"
           value={s.stock.soldOut}

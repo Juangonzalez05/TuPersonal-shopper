@@ -8,34 +8,51 @@ import { IncompleteBadge } from '@/components/orders/StatusBadges'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { decimalInputValue, formatCop, formatPercent, percentInputValue } from '@/lib/format'
+import { decimalInputValue, formatCop, formatPercent } from '@/lib/format'
 import { toLineInput, type OrderFormValues } from '@/lib/order-form'
-import { lineTotals } from '@/lib/pricing'
-import { stockWarning, type Shortage } from '@/lib/stock'
+import { impliedMarkup, lineTotals } from '@/lib/pricing'
+import { stockWarning, type Shortage, type StockLevels } from '@/lib/stock'
 import { cn } from '@/lib/utils'
 
 type OrderLineFieldsProps = {
   index: number
   products: Product[]
-  /** Disponible por producto (v_stock). */
-  stock: Map<string, number>
+  /** Disponible y en camino por producto (v_stock). */
+  stock: Map<string, StockLevels>
   /** Último costo USD de ingreso por producto, para prellenar si sale del inventario. */
   lastCosts: Map<string, number>
+  /** Último precio c/u cobrado por producto, para prellenar el precio. */
+  unitPrices: Map<string, number>
   /** Productos que no alcanzan, sumando todas las líneas del pedido. */
   shortages: Map<string, Shortage>
   onRemove?: () => void
 }
 
-const missingLabel = { trm: 'falta TRM', pct: 'falta %' }
+const missingLabel = { trm: 'falta TRM', price: 'falta precio' }
 
-export function OrderLineFields({ index, products, stock, lastCosts, shortages, onRemove }: OrderLineFieldsProps) {
+/** "3 disp. · +2 en camino" */
+function stockText(levels: StockLevels | undefined): string {
+  const { available, inTransit } = levels ?? { available: 0, inTransit: 0 }
+  return inTransit > 0 ? `${available} disp. · +${inTransit} en camino` : `${available} disp.`
+}
+
+export function OrderLineFields({
+  index,
+  products,
+  stock,
+  lastCosts,
+  unitPrices,
+  shortages,
+  onRemove,
+}: OrderLineFieldsProps) {
   const switchId = useId()
   const { control, register, setValue, trigger, formState } = useFormContext<OrderFormValues>()
   const line = useWatch({ control, name: `lines.${index}` })
   const errors = formState.errors.lines?.[index]
   const totals = lineTotals(toLineInput(line))
   const shortage = line.fromStock && line.productId ? shortages.get(line.productId) : undefined
-  const warning = shortage ? stockWarning(shortage.available, shortage.requested) : null
+  const warning = shortage ? stockWarning(shortage.available, shortage.requested, shortage.inTransit) : null
+  const markup = impliedMarkup(totals.costCop, totals.priceCop)
 
   /** Si sale del inventario y el USD está vacío, usa el último costo de ingreso. */
   const prefillCost = (productId: string) => {
@@ -73,8 +90,8 @@ export function OrderLineFields({ index, products, stock, lastCosts, shortages, 
                     <span>{p.name}</span>
                     <span className="shrink-0 text-sm text-muted-foreground">
                       {[
-                        line.fromStock && `${stock.get(p.id) ?? 0} disp.`,
-                        p.defaultMarkup !== null && formatPercent(p.defaultMarkup),
+                        line.fromStock && stockText(stock.get(p.id)),
+                        unitPrices.has(p.id) && formatCop(unitPrices.get(p.id)!),
                       ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -84,8 +101,10 @@ export function OrderLineFields({ index, products, stock, lastCosts, shortages, 
                 onSelect={(p) => {
                   field.onChange(p.name)
                   setValue(`lines.${index}.productId`, p.id, { shouldValidate: formState.isSubmitted })
-                  if (p.defaultMarkup !== null) {
-                    setValue(`lines.${index}.pct`, percentInputValue(p.defaultMarkup))
+                  // El precio de la última vez que se vendió, si aún no escribió uno.
+                  const lastPrice = unitPrices.get(p.id)
+                  if (lastPrice !== undefined && line.price.trim() === '') {
+                    setValue(`lines.${index}.price`, String(lastPrice))
                   }
                   if (line.fromStock) prefillCost(p.id)
                   if (formState.isSubmitted) void trigger(`lines.${index}`)
@@ -114,7 +133,7 @@ export function OrderLineFields({ index, products, stock, lastCosts, shortages, 
           <p className="-mt-1 text-xs text-muted-foreground">
             {line.productId
               ? line.fromStock
-                ? `Del inventario · ${stock.get(line.productId) ?? 0} disponibles`
+                ? `Del inventario · ${stockText(stock.get(line.productId))}`
                 : 'Del catálogo'
               : line.fromStock
                 ? 'Elige un producto de la lista para sacarlo del inventario'
@@ -154,10 +173,11 @@ export function OrderLineFields({ index, products, stock, lastCosts, shortages, 
         />
         <NumberField label="TRM" placeholder="0" error={errors?.trm?.message} {...register(`lines.${index}.trm`)} />
         <NumberField
-          label="% incremento"
-          suffix="%"
-          error={errors?.pct?.message}
-          {...register(`lines.${index}.pct`)}
+          label="Precio c/u al cliente"
+          prefix="$"
+          placeholder="0"
+          error={errors?.price?.message}
+          {...register(`lines.${index}.price`)}
         />
       </div>
       <NumberField
@@ -173,6 +193,11 @@ export function OrderLineFields({ index, products, stock, lastCosts, shortages, 
         <LiveValue label="Precio" value={totals.priceCop} />
         <LiveValue label="Ganancia" value={totals.profitCop} highlight />
       </dl>
+      {markup !== null && totals.priceCop > 0 && (
+        <p className="-mt-1 text-center text-xs text-muted-foreground">
+          Incremento sobre el costo: <span className="font-medium text-foreground">{formatPercent(markup)}</span>
+        </p>
+      )}
       {totals.incomplete && (
         <IncompleteBadge>{`Incompleta · ${totals.missing.map((m) => missingLabel[m]).join(' y ')}`}</IncompleteBadge>
       )}

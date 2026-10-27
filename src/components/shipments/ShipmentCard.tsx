@@ -34,10 +34,10 @@ export function ShipmentCard({ shipment }: { shipment: Shipment }) {
         <ShipmentStateBadge state={shipment.state} />
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
-        <Stat label="Productos">{shipment.itemsCount}</Stat>
+        <Stat label="Productos">{shipment.itemsCount + shipment.stockUnits}</Stat>
         <Stat label="Envío cobrado">{formatCop(shipment.chargedCop)}</Stat>
-        <Stat label="Costo real">{shipment.realCostCop === null ? '—' : formatCop(shipment.realCostCop)}</Stat>
-        <Stat label="Diferencia">
+        <Stat label="Costo del envío">{shipment.realCostCop === null ? '—' : formatCop(shipment.realCostCop)}</Stat>
+        <Stat label="Ganancia de envío">
           <DifferenceValue value={shipment.differenceCop} />
         </Stat>
       </dl>

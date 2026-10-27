@@ -47,9 +47,10 @@ function ProductView({ product }: { product: ProductStock }) {
           <h2 className="text-xl font-semibold">{product.name}</h2>
           <StockBadge state={product.state} />
         </div>
-        <dl className="grid grid-cols-3 gap-2 rounded-lg border p-3 text-center">
+        <dl className="grid auto-cols-fr grid-flow-col gap-2 rounded-lg border p-3 text-center">
           <Stat label="Disponible" value={product.availableQty} strong />
           <Stat label="Ingresado" value={product.enteredQty} />
+          {product.inTransitQty > 0 && <Stat label="En camino" value={product.inTransitQty} />}
           <Stat label="Vendido" value={product.soldQty} />
         </dl>
         {product.state === 'revisar' && (
@@ -96,7 +97,8 @@ function ProductView({ product }: { product: ProductStock }) {
                     {[
                       formatDate(movement.movedOn),
                       movement.unitCostUsd !== null && `${formatUsd(movement.unitCostUsd)} c/u`,
-                      movement.shipmentCode && `caja ${movement.shipmentCode}`,
+                      movement.shipmentCode &&
+                        (movement.inTransit ? `en camino · ${movement.shipmentCode}` : `caja ${movement.shipmentCode}`),
                       movement.note,
                     ]
                       .filter(Boolean)

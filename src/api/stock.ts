@@ -17,8 +17,10 @@ export const stockKeys = {
 export type StockItem = {
   productId: string
   name: string
-  /** Ingresos + ajustes. */
+  /** Ingresos + ajustes (sin caja o de cajas que ya llegaron). */
   enteredQty: number
+  /** Lo que traen las cajas que aún no llegan. */
+  inTransitQty: number
   /** Líneas "sale del inventario" de pedidos Confirmado en adelante. */
   soldQty: number
   availableQty: number
@@ -34,6 +36,8 @@ export type StockMovement = {
   note: string | null
   shipmentId: string | null
   shipmentCode: string | null
+  /** La caja aún no llega: esta mercancía está en camino. */
+  inTransit: boolean
 }
 
 /** Una línea de pedido que sale del inventario. */
@@ -58,7 +62,7 @@ type MovementRow = {
   moved_on: string
   note: string | null
   shipment_id: string | null
-  shipment: { code: string } | null
+  shipment: { code: string; arrived_on: string | null } | null
 }
 
 type SaleRow = {
@@ -72,6 +76,7 @@ function toStockItem(row: StockRow): StockItem {
     productId: row.product_id!,
     name: row.name ?? '',
     enteredQty: row.entered_qty ?? 0,
+    inTransitQty: row.in_transit_qty ?? 0,
     soldQty: row.sold_qty ?? 0,
     availableQty: row.available_qty ?? 0,
     state: isStockState(row.state) ? row.state : 'agotado',
@@ -100,7 +105,7 @@ export function useProductStock(productId: string) {
         supabase.from('v_stock').select('*').eq('product_id', productId).maybeSingle(),
         supabase
           .from('stock_movements')
-          .select('id, kind, qty, unit_cost_usd, moved_on, note, shipment_id, shipment:shipments(code)')
+          .select('id, kind, qty, unit_cost_usd, moved_on, note, shipment_id, shipment:shipments(code, arrived_on)')
           .eq('product_id', productId)
           .order('moved_on', { ascending: false })
           .order('created_at', { ascending: false }),
@@ -126,6 +131,7 @@ export function useProductStock(productId: string) {
           note: m.note,
           shipmentId: m.shipment_id,
           shipmentCode: m.shipment?.code ?? null,
+          inTransit: m.shipment !== null && m.shipment.arrived_on === null,
         })),
         sales: (sales.data as SaleRow[]).map((s) => ({
           id: s.id,

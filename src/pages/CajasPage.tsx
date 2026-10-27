@@ -9,7 +9,8 @@ import { ShipmentForm } from '@/components/shipments/ShipmentForm'
 import { Button } from '@/components/ui/button'
 import { errorMessage, isUniqueViolation } from '@/lib/errors'
 import { isPurchasedStatus } from '@/lib/order-labels'
-import { nextShipmentCode, shipmentFields } from '@/lib/shipments'
+import { todayBogota } from '@/lib/format'
+import { boxStockFromRows, nextShipmentCode, shipmentFields } from '@/lib/shipments'
 
 export function CajasPage() {
   const navigate = useNavigate()
@@ -33,7 +34,8 @@ export function CajasPage() {
   const list = shipments.data
   const carriers = [...new Set(list.map((s) => s.carrier).filter((c): c is string => Boolean(c)))]
   const unboxedPurchased = (unboxed.data ?? []).filter((item) => isPurchasedStatus(item.orderStatus))
-  const openCount = list.filter((s) => s.state === 'por_cerrar').length
+  // Sin costo del envío no hay ganancia de envío que calcular.
+  const openCount = list.filter((s) => s.realCostCop === null).length
 
   return (
     <div className="grid gap-3">
@@ -41,14 +43,25 @@ export function CajasPage() {
 
       {creating ? (
         <ShipmentForm
-          defaultValues={{ code: nextShipmentCode(list.map((s) => s.code)), carrier: '', arrivedOn: '', notes: '' }}
+          defaultValues={{
+            code: nextShipmentCode(list.map((s) => s.code)),
+            carrier: '',
+            shippedOn: todayBogota(),
+            expectedOn: '',
+            realCost: '',
+            notes: '',
+          }}
+          withStock
           carriers={carriers}
           submitLabel="Crear caja"
           pending={createShipment.isPending}
           onCancel={() => setCreating(false)}
           onSubmit={async (values) => {
             try {
-              const id = await createShipment.mutateAsync(shipmentFields(values))
+              const id = await createShipment.mutateAsync({
+                ...shipmentFields(values),
+                stock: boxStockFromRows(values.stock),
+              })
               toast.success(`Caja ${shipmentFields(values).code} creada`)
               navigate(`/cajas/${id}`)
             } catch (error) {

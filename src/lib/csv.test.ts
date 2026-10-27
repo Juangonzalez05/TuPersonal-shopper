@@ -71,6 +71,8 @@ describe('exportaciones', () => {
       unitCostUsd: 7.99,
       trm: 4123.45,
       markupPct: 0.4,
+      unitPriceCop: null,
+      markupEffective: 0.4,
       shippingChargedCop: 0,
       costCop: 32_946,
       priceCop: 46_100,
@@ -88,20 +90,23 @@ describe('exportaciones', () => {
     )
   })
 
-  it('cajas: como "Control de envíos", sin diferencia mientras está por cerrar', () => {
+  it('cajas: con despacho, llegada estimada e inventario; sin ganancia mientras no hay costo', () => {
     const shipment: Shipment = {
       id: 's1',
       code: 'ENV-002',
       carrier: 'Aeropost',
+      shippedOn: '2026-10-20',
+      expectedOn: '2026-10-31',
       arrivedOn: null,
       realCostCop: null,
       notes: 'frágil',
       itemsCount: 3,
       chargedCop: 27_000,
-      state: 'por_cerrar',
+      state: 'en_camino',
       differenceCop: null,
+      stockUnits: 4,
       createdAt: '2026-10-20T15:00:00Z',
     }
-    expect(lines(shipmentsCsv([shipment]))[1]).toBe(';ENV-002;Aeropost;3;;27000;;Por cerrar;frágil')
+    expect(lines(shipmentsCsv([shipment]))[1]).toBe('ENV-002;Aeropost;20/10/2026;31/10/2026;;En camino;3;4;27000;;;frágil')
   })
 })

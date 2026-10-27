@@ -4,6 +4,7 @@ import { AppLayout, type RouteHandle } from '@/components/layout/AppLayout'
 import { AgregarACajaPage } from '@/pages/AgregarACajaPage'
 import { CajaDetallePage } from '@/pages/CajaDetallePage'
 import { CajasPage } from '@/pages/CajasPage'
+import { EditarPedidoPage } from '@/pages/EditarPedidoPage'
 import { InventarioPage } from '@/pages/InventarioPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { NuevoPedidoPage } from '@/pages/NuevoPedidoPage'
@@ -26,6 +27,11 @@ export const router = createBrowserRouter([
           { path: 'pedidos', element: <PedidosPage />, handle: handle('Pedidos') },
           { path: 'pedidos/nuevo', element: <NuevoPedidoPage />, handle: handle('Nuevo pedido') },
           { path: 'pedidos/:orderId', element: <PedidoDetallePage />, handle: handle('Pedido', '/pedidos') },
+          {
+            path: 'pedidos/:orderId/editar',
+            element: <EditarPedidoPage />,
+            handle: handle('Editar pedido', (params) => `/pedidos/${params.orderId}`),
+          },
           { path: 'cajas', element: <CajasPage />, handle: handle('Cajas') },
           { path: 'cajas/:shipmentId', element: <CajaDetallePage />, handle: handle('Caja', '/cajas') },
           {

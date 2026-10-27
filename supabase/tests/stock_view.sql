@@ -12,6 +12,7 @@ declare
   v_confirmed uuid;
   v_quote     uuid;
   v_cancelled uuid;
+  v_box       uuid;
   v_got       text;
 begin
   select id into v_owner from auth.users order by created_at limit 1;
@@ -59,6 +60,20 @@ begin
     update public.orders set status = 'confirmado' where id = v_quote;
     select format('%s/%s', sold_qty, available_qty) into v_got from public.v_stock where product_id = v_product;
     assert v_got = '6/-2', 'Cotización confirmada: ' || v_got;
+
+    -- Una caja en camino trae 3: no suman al disponible, pero cubren lo vendido.
+    insert into public.shipments (owner_id, code) values (v_owner, 'PRUEBA-STOCK') returning id into v_box;
+    insert into public.stock_movements (owner_id, product_id, kind, qty, shipment_id)
+    values (v_owner, v_product, 'ingreso', 3, v_box);
+    select format('%s/%s/%s/%s', entered_qty, in_transit_qty, available_qty, state)
+      into v_got from public.v_stock where product_id = v_product;
+    assert v_got = '4/3/-2/en_camino', 'Caja en camino: ' || v_got;
+
+    -- Al llegar la caja, pasan a disponibles.
+    update public.shipments set arrived_on = current_date where id = v_box;
+    select format('%s/%s/%s/%s', entered_qty, in_transit_qty, available_qty, state)
+      into v_got from public.v_stock where product_id = v_product;
+    assert v_got = '7/0/1/disponible', 'Caja que llegó: ' || v_got;
 
     raise exception 'deshacer datos de prueba' using errcode = 'P0099';
   exception

@@ -56,6 +56,21 @@ begin
       from public.v_orders where id = v_c;
     assert v_got = '12000/0/pagado', 'Caso C pedido: ' || v_got;
 
+    -- Caso A escrito con precio c/u (56.000) en vez de %: mismo precio y el 40 % sale solo.
+    insert into public.order_items
+      (owner_id, order_id, description, qty, unit_cost_usd, trm, unit_price_cop, shipping_charged_cop)
+    values (v_owner, v_b, 'Caso A con precio', 2, 10, 4000, 56000, 0);
+    select format('%s/%s/%s/%s/%s', cost_cop, price_cop, profit_cop, markup_effective, incomplete) into v_got
+      from public.v_order_items where order_id = v_b and description = 'Caso A con precio';
+    assert v_got = '80000/112000/32000/0.4000/f', 'Caso A con precio c/u: ' || v_got;
+
+    -- Con costo pero sin precio ni %: incompleta.
+    insert into public.order_items (owner_id, order_id, description, qty, unit_cost_usd, trm)
+    values (v_owner, v_b, 'Sin precio', 1, 10, 4000);
+    select format('%s/%s', price_cop, incomplete) into v_got
+      from public.v_order_items where order_id = v_b and description = 'Sin precio';
+    assert v_got = '40000/t', 'Sin precio: ' || v_got;
+
     raise exception 'deshacer datos de prueba' using errcode = 'P0099';
   exception
     when sqlstate 'P0099' then null;  -- todo lo de arriba queda deshecho

@@ -24,23 +24,24 @@ export type Summary = {
   /** LO QUE COBRO */
   billing: { productsCop: number; shippingCop: number; totalCop: number; paidCop: number; balanceCop: number }
   /** LO QUE ME CUESTA */
-  costs: { productsCop: number; closedShipmentsCop: number }
+  /** shippingCostCop: costo del envío de las cajas que ya lo tienen. */
+  costs: { productsCop: number; shippingCostCop: number }
   /** MI GANANCIA */
   profit: { productsCop: number; shippingCop: number; totalCop: number }
   /** ESTADO DE LAS VENTAS */
   sales: { pendiente: number; separado: number; pagado: number; incomplete: number; quotes: number }
   /** CAJAS DE ENVÍO */
-  shipments: { closed: number; open: number; unboxedShippingCop: number }
+  shipments: { arrived: number; inTransit: number; withoutCost: number; unboxedShippingCop: number }
   /** INVENTARIO (foto de hoy) */
-  stock: { products: number; availableUnits: number; soldOut: number; toReview: number }
+  stock: { products: number; availableUnits: number; inTransitUnits: number; soldOut: number; toReview: number }
 }
 
 /** "2026-10-22" → "2026-10" */
 export const monthOf = (isoDate: string) => isoDate.slice(0, 7)
 
-/** Mes de una caja: el de llegada o, si aún no tiene, el de creación en hora de Bogotá. */
+/** Mes de una caja: el de llegada, si no el de despacho, y si no el de creación en hora de Bogotá. */
 export const shipmentMonth = (shipment: Shipment) =>
-  monthOf(shipment.arrivedOn ?? todayBogota(new Date(shipment.createdAt)))
+  monthOf(shipment.arrivedOn ?? shipment.shippedOn ?? todayBogota(new Date(shipment.createdAt)))
 
 const sum = <T>(items: T[], pick: (item: T) => number) => items.reduce((total, item) => total + pick(item), 0)
 
@@ -50,12 +51,13 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
   const monthOrders = data.orders.filter((o) => inMonth(o.orderedOn))
   const orders = monthOrders.filter((o) => o.status !== 'cotizado' && o.status !== 'anulado')
   const shipments = data.shipments.filter((s) => month === null || shipmentMonth(s) === month)
-  const closed = shipments.filter((s) => s.state === 'cerrada')
+  // La ganancia de envío se puede calcular apenas la caja tiene costo, llegue o no.
+  const withCost = shipments.filter((s) => s.realCostCop !== null)
 
   const productsCop = sum(orders, (o) => o.itemsPriceCop)
   const shippingCop = sum(orders, (o) => o.shippingChargedCop)
   const productsProfit = sum(orders, (o) => o.itemsProfitCop)
-  const shippingProfit = sum(closed, (s) => s.differenceCop ?? 0)
+  const shippingProfit = sum(withCost, (s) => s.differenceCop ?? 0)
 
   return {
     billing: {
@@ -67,7 +69,7 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
     },
     costs: {
       productsCop: sum(orders, (o) => o.itemsCostCop),
-      closedShipmentsCop: sum(closed, (s) => s.realCostCop ?? 0),
+      shippingCostCop: sum(withCost, (s) => s.realCostCop ?? 0),
     },
     profit: {
       productsCop: productsProfit,
@@ -82,8 +84,9 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
       quotes: monthOrders.filter((o) => o.status === 'cotizado').length,
     },
     shipments: {
-      closed: closed.length,
-      open: shipments.filter((s) => s.state === 'por_cerrar').length,
+      arrived: shipments.filter((s) => s.state === 'llego').length,
+      inTransit: shipments.filter((s) => s.state === 'en_camino').length,
+      withoutCost: shipments.length - withCost.length,
       unboxedShippingCop: sum(
         data.unboxed.filter((item) => inMonth(item.orderedOn)),
         (item) => item.shippingChargedCop,
@@ -92,6 +95,7 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
     stock: {
       products: data.stock.length,
       availableUnits: sum(data.stock, (item) => Math.max(item.availableQty, 0)),
+      inTransitUnits: sum(data.stock, (item) => item.inTransitQty),
       soldOut: data.stock.filter((item) => item.state === 'agotado').length,
       toReview: data.stock.filter((item) => item.state === 'revisar').length,
     },

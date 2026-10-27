@@ -40,11 +40,13 @@ type StockMovementFormProps = {
   kind: 'ingreso' | 'ajuste'
   /** Producto fijo (detalle del producto); si no viene, se elige o se crea en el formulario. */
   product?: { id: string; name: string; availableQty: number }
+  /** Caja fija (detalle de la caja): el ingreso queda en camino hasta que la caja llegue. */
+  shipment?: { id: string; code: string }
   onDone: () => void
 }
 
 /** Registrar un ingreso de stock o un ajuste (sumar/restar con motivo). */
-export function StockMovementForm({ kind, product, onDone }: StockMovementFormProps) {
+export function StockMovementForm({ kind, product, shipment, onDone }: StockMovementFormProps) {
   const id = useId()
   const products = useProducts()
   const shipments = useShipments()
@@ -62,7 +64,7 @@ export function StockMovementForm({ kind, product, onDone }: StockMovementFormPr
     formState: { errors },
   } = useForm<MovementValues>({
     resolver: zodResolver(movementSchema),
-    defaultValues: { qty: '', usd: '', shipmentId: '', movedOn: todayBogota(), note: '' },
+    defaultValues: { qty: '', usd: '', shipmentId: shipment?.id ?? '', movedOn: todayBogota(), note: '' },
   })
 
   const catalog = products.data ?? []
@@ -202,6 +204,11 @@ export function StockMovementForm({ kind, product, onDone }: StockMovementFormPr
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor={`${id}-shipment`}>Caja</Label>
+            {shipment ? (
+              <p id={`${id}-shipment`} className="flex h-11 items-center rounded-md bg-muted/60 px-3 text-base">
+                {shipment.code}
+              </p>
+            ) : (
             <NativeSelect
               id={`${id}-shipment`}
               containerClassName="w-full"
@@ -211,10 +218,11 @@ export function StockMovementForm({ kind, product, onDone }: StockMovementFormPr
               <NativeSelectOption value="">Sin caja</NativeSelectOption>
               {(shipments.data ?? []).map((s) => (
                 <NativeSelectOption key={s.id} value={s.id}>
-                  {s.code}
+                  {s.state === 'en_camino' ? `${s.code} (en camino)` : s.code}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
+            )}
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor={`${id}-date`}>Fecha</Label>
