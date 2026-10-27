@@ -1,11 +1,13 @@
 // Fórmulas del Excel (ROADMAP §4). Deben dar exactamente lo mismo que las vistas
-// v_order_items y v_orders de la migración inicial:
+// v_order_items y v_orders:
 //   costo_total = ROUND(USD × TRM × cantidad)
-//   precio      = ROUND(costo_total × (1 + %), -2)      -- a la centena
+//   precio      = precio c/u × cantidad              si ella escribió el precio al cliente
+//               = ROUND(costo_total × (1 + %), -2)   si no (a la centena, como el Excel)
 //   ganancia    = precio − costo_total
+//   incremento  = precio / costo − 1                 (informativo, 4 decimales)
 //   total       = precio + envío cobrado
 //   saldo       = total − abonos
-//   incompleta  = USD > 0 y (TRM = 0 o % vacío)
+//   incompleta  = USD > 0 y (TRM = 0 o faltan precio y %)
 //
 // Se calcula con BigInt sobre enteros (centavos de USD y TRM, diezmilésimas de %) para
 // no arrastrar errores de punto flotante: 7,99 × 4123,45 = 32.946,3655 debe dar 32.946.
@@ -20,8 +22,10 @@ export type LineInput = {
   trm: number
   /** Entero > 0. */
   qty: number
-  /** Fracción (0.40 = 40 %). null = falta definirlo. */
+  /** Fracción (0.40 = 40 %). null = no se usa (pedidos viejos o con precio escrito). */
   markupPct: number | null
+  /** Precio c/u al cliente en COP. Si viene, manda sobre el %. null = falta. */
+  unitPriceCop: number | null
   /** COP entero cobrado por envío/gestión en esta línea. */
   shippingChargedCop: number
 }
@@ -35,7 +39,7 @@ export type LineTotals = {
   totalCop: number
   incomplete: boolean
   /** Qué le falta a una línea incompleta. */
-  missing: ('trm' | 'pct')[]
+  missing: ('trm' | 'price')[]
 }
 
 export type OrderTotals = {
@@ -64,12 +68,15 @@ export function lineTotals(line: LineInput): LineTotals {
   const cost = roundDiv(usdCents * trmCents * BigInt(line.qty), 10_000n)
 
   const markupTenThousandths = toScaled(line.markupPct ?? 0, 10_000)
-  const price = roundDiv(cost * (10_000n + markupTenThousandths), 1_000_000n) * 100n
+  const price =
+    line.unitPriceCop !== null
+      ? BigInt(line.unitPriceCop) * BigInt(line.qty)
+      : roundDiv(cost * (10_000n + markupTenThousandths), 1_000_000n) * 100n
 
   const missing: LineTotals['missing'] = []
   if (line.unitCostUsd > 0) {
     if (line.trm === 0) missing.push('trm')
-    if (line.markupPct === null) missing.push('pct')
+    if (line.markupPct === null && line.unitPriceCop === null) missing.push('price')
   }
 
   const costCop = Number(cost)
@@ -83,6 +90,12 @@ export function lineTotals(line: LineInput): LineTotals {
     incomplete: missing.length > 0,
     missing,
   }
+}
+
+/** Incremento sobre el costo (0.4 = 40 %), redondeado a 4 decimales como en la base. null si no hay costo. */
+export function impliedMarkup(costCop: number, priceCop: number): number | null {
+  if (costCop <= 0) return null
+  return Number(roundDiv(BigInt(priceCop) * 10_000n, BigInt(costCop)) - 10_000n) / 10_000
 }
 
 export function paymentStatus(balanceCop: number, paidCop: number): PaymentStatus {

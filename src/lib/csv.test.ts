@@ -71,6 +71,8 @@ describe('exportaciones', () => {
       unitCostUsd: 7.99,
       trm: 4123.45,
       markupPct: 0.4,
+      unitPriceCop: null,
+      markupEffective: 0.4,
       shippingChargedCop: 0,
       costCop: 32_946,
       priceCop: 46_100,

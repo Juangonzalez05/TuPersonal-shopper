@@ -44,6 +44,10 @@ export type OrderItem = {
   unitCostUsd: number
   trm: number
   markupPct: number | null
+  /** Precio c/u al cliente que escribió ella; null en líneas viejas que usan %. */
+  unitPriceCop: number | null
+  /** Incremento real sobre el costo (precio / costo − 1); null si no hay costo. */
+  markupEffective: number | null
   shippingChargedCop: number
   costCop: number
   priceCop: number
@@ -105,6 +109,8 @@ function toOrderItem(row: OrderItemRow): OrderItem {
     unitCostUsd: row.unit_cost_usd ?? 0,
     trm: row.trm ?? 0,
     markupPct: row.markup_pct,
+    unitPriceCop: row.unit_price_cop,
+    markupEffective: row.markup_effective,
     shippingChargedCop: row.shipping_charged_cop ?? 0,
     costCop: row.cost_cop ?? 0,
     priceCop: row.price_cop ?? 0,
@@ -204,12 +210,15 @@ export async function fetchOrderLines(): Promise<OrderLineExport[]> {
     .sort((a, b) => a.orderedOn.localeCompare(b.orderedOn))
 }
 
-/** Última TRM y último % usados, para prellenar el formulario. */
+/**
+ * Última TRM usada y último precio c/u por producto, para prellenar el formulario:
+ * al elegir un producto que ya se vendió, el precio sale como la última vez.
+ */
 export function useLastPricing() {
   return useQuery({
     queryKey: orderKeys.lastPricing,
     queryFn: async () => {
-      const [trm, markup] = await Promise.all([
+      const [trm, prices] = await Promise.all([
         supabase
           .from('order_items')
           .select('trm')
@@ -217,17 +226,24 @@ export function useLastPricing() {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabase
-          .from('order_items')
-          .select('markup_pct')
-          .not('markup_pct', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        fetchAll((from, to) =>
+          supabase
+            .from('v_order_items')
+            .select('product_id, qty, price_cop, unit_price_cop')
+            .not('product_id', 'is', null)
+            .gt('price_cop', 0)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(from, to),
+        ),
       ])
       if (trm.error) throw trm.error
-      if (markup.error) throw markup.error
-      return { trm: trm.data?.trm ?? null, markupPct: markup.data?.markup_pct ?? null }
+      const unitPrices = new Map<string, number>()
+      for (const row of prices) {
+        if (!row.product_id || unitPrices.has(row.product_id) || !row.qty || !row.price_cop) continue
+        unitPrices.set(row.product_id, row.unit_price_cop ?? Math.round(row.price_cop / row.qty))
+      }
+      return { trm: trm.data?.trm ?? null, unitPrices }
     },
   })
 }
@@ -249,6 +265,42 @@ export function useCreateOrder() {
       void queryClient.invalidateQueries({ queryKey: customerKeys.all })
       void queryClient.invalidateQueries({ queryKey: productKeys.all })
       void queryClient.invalidateQueries({ queryKey: stockKeys.all })
+    },
+  })
+}
+
+export type UpdateOrderArgs = Database['public']['Functions']['update_order']['Args']
+
+/** Editar un pedido guardado: datos y líneas (las líneas con id conservan su caja). */
+export function useUpdateOrder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: UpdateOrderArgs) => {
+      const { data, error } = await supabase.rpc('update_order', args)
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.all })
+      void queryClient.invalidateQueries({ queryKey: customerKeys.all })
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ['shipments'] })
+    },
+  })
+}
+
+/** Borrar el pedido completo: sus líneas y abonos se borran con él (cascada). */
+export function useDeleteOrder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderKeys.all })
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ['shipments'] })
     },
   })
 }
