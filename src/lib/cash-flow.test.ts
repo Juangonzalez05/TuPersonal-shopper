@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { CashEntry } from '@/api/cash'
-import { buildCashFlow, cashMonths, hasManualEntries, isIncome, type CashSource } from './cash-flow'
+import {
+  buildCashFlow,
+  cashEntryText,
+  cashMonths,
+  hasManualEntries,
+  isIncome,
+  toCashMovement,
+  type CashSource,
+} from './cash-flow'
 
 let nextId = 0
 const entry = (source: CashSource, amountCop: number, movedOn: string, createdAt = `${movedOn}T15:00:00Z`): CashEntry => ({
@@ -82,6 +90,45 @@ describe('cashMonths', () => {
       '2026-10',
       '2026-08',
     ])
+  })
+})
+
+describe('cashEntryText', () => {
+  it('abonos y cajas se nombran por el cliente y el código', () => {
+    expect(cashEntryText({ ...entry('abono', 1, TODAY), label: 'Ana', method: 'Nequi', note: 'segundo pago' })).toEqual({
+      title: 'Abono de Ana',
+      detail: 'segundo pago · Nequi',
+    })
+    expect(cashEntryText({ ...entry('envio', 1, TODAY), label: 'ENV-003' })).toEqual({
+      title: 'Envío de la caja ENV-003',
+      detail: '',
+    })
+  })
+
+  it('lo anotado a mano usa su nota como título y pasa el tipo al detalle', () => {
+    const purchase = { ...entry('reinversion', 1, TODAY), label: 'Ana', method: 'Tarjeta' }
+    expect(cashEntryText(purchase)).toEqual({ title: 'Compra del pedido de Ana', detail: 'Tarjeta' })
+    expect(cashEntryText({ ...purchase, note: 'Amazon' })).toEqual({
+      title: 'Amazon',
+      detail: 'Compra del pedido de Ana · Tarjeta',
+    })
+    expect(cashEntryText(entry('retiro', 1, TODAY))).toEqual({ title: 'Saqué para mí', detail: '' })
+  })
+})
+
+describe('toCashMovement', () => {
+  it('solo lo anotado a mano se puede corregir', () => {
+    const gasto = { ...entry('gasto', 5_000, TODAY), note: 'Empaques', method: 'Efectivo' }
+    expect(toCashMovement(gasto)).toEqual({
+      id: gasto.id,
+      kind: 'gasto',
+      amountCop: 5_000,
+      movedOn: TODAY,
+      orderId: null,
+      method: 'Efectivo',
+      note: 'Empaques',
+    })
+    expect(toCashMovement(entry('abono', 1, TODAY))).toBeNull()
   })
 })
 

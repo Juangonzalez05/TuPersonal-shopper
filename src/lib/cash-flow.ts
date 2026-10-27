@@ -2,7 +2,7 @@
 // Los abonos de clientes y el costo de envío de las cajas llegan solos desde v_cash_flow;
 // las reinversiones, gastos, retiros y aportes los anota ella.
 
-import type { CashEntry } from '@/api/cash'
+import type { CashEntry, CashMovement } from '@/api/cash'
 import { PAYMENT_METHODS } from './order-labels'
 import { monthOf } from './summary'
 
@@ -106,3 +106,27 @@ export function cashMonths(entries: CashEntry[], today: string): string[] {
 
 /** ¿Ya anotó algo a mano? Si no, la pantalla le pregunta con cuánta plata arranca. */
 export const hasManualEntries = (entries: CashEntry[]) => entries.some((entry) => isCashKind(entry.source))
+
+/** El movimiento anotado a mano detrás de un renglón, para corregirlo; null si llegó solo. */
+export function toCashMovement(entry: CashEntry): CashMovement | null {
+  if (!isCashKind(entry.source)) return null
+  const { id, source: kind, amountCop, movedOn, orderId, method, note } = entry
+  return { id, kind, amountCop, movedOn, orderId, method, note }
+}
+
+/** Título y detalle de un renglón. Lo anotado a mano se reconoce por su nota; el tipo pasa al detalle. */
+export function cashEntryText(entry: CashEntry): { title: string; detail: string } {
+  const base: Record<CashSource, string> = {
+    abono: `Abono de ${entry.label ?? 'cliente'}`,
+    envio: `Envío de la caja ${entry.label ?? ''}`.trim(),
+    reinversion: entry.label ? `Compra del pedido de ${entry.label}` : 'Reinversión',
+    gasto: 'Gasto',
+    retiro: 'Saqué para mí',
+    aporte: 'Metí plata',
+  }
+  const titledByNote = isCashKind(entry.source) && entry.note !== null
+  return {
+    title: titledByNote ? entry.note! : base[entry.source],
+    detail: [titledByNote ? base[entry.source] : entry.note, entry.method].filter(Boolean).join(' · '),
+  }
+}
