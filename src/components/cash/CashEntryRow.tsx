@@ -16,13 +16,18 @@ import { cashEntryText, isIncome, type CashSource } from '@/lib/cash-flow'
 import { formatCop } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-export const cashSourceIcon: Record<CashSource, LucideIcon> = {
+const sourceIcon: Record<CashSource, LucideIcon> = {
   abono: HandCoins,
   aporte: PiggyBank,
   reinversion: ShoppingBag,
   envio: Package,
   gasto: Receipt,
   retiro: Banknote,
+}
+
+export function CashSourceIcon({ source, className }: { source: CashSource; className?: string }) {
+  const Icon = sourceIcon[source]
+  return <Icon className={className} />
 }
 
 /** Valor con signo: verde si entra, rojo si sale. */
@@ -41,7 +46,6 @@ export function CashAmount({ entry, className }: { entry: CashEntry; className?:
  * lo anotado a mano llama a onEdit.
  */
 export function CashEntryRow({ entry, onEdit }: { entry: CashEntry; onEdit: (entry: CashEntry) => void }) {
-  const Icon = cashSourceIcon[entry.source]
   const { title, detail } = cashEntryText(entry)
   const content: ReactNode = (
     <>
@@ -51,7 +55,7 @@ export function CashEntryRow({ entry, onEdit }: { entry: CashEntry; onEdit: (ent
           isIncome(entry.source) ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700',
         )}
       >
-        <Icon className="size-4" />
+        <CashSourceIcon source={entry.source} className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{title}</span>

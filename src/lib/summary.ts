@@ -7,6 +7,7 @@
 //  - Los estados se cuentan por pedido (el Excel contaba filas de producto) y "Canceladas"
 //    se llama "Pagados".
 
+import type { CashEntry } from '@/api/cash'
 import type { OrderSummary } from '@/api/orders'
 import type { BoxItem, Shipment } from '@/api/shipments'
 import type { StockItem } from '@/api/stock'
@@ -102,8 +103,18 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
   }
 }
 
-/** Meses con pedidos o cajas, más el actual, del más reciente al más antiguo. */
-export function monthOptions(orders: OrderSummary[], shipments: Shipment[], today: string): string[] {
-  const months = new Set([monthOf(today), ...orders.map((o) => monthOf(o.orderedOn)), ...shipments.map(shipmentMonth)])
+/** Meses con pedidos, cajas o movimientos de plata, más el actual, del más reciente al más antiguo. */
+export function monthOptions(
+  orders: OrderSummary[],
+  shipments: Shipment[],
+  today: string,
+  cash: CashEntry[] = [],
+): string[] {
+  const months = new Set([
+    monthOf(today),
+    ...orders.map((o) => monthOf(o.orderedOn)),
+    ...shipments.map(shipmentMonth),
+    ...cash.map((entry) => monthOf(entry.movedOn)),
+  ])
   return [...months].sort().reverse()
 }

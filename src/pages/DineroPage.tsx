@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useCashFlow, type CashEntry } from '@/api/cash'
-import { cashSourceIcon, CashEntryRow } from '@/components/cash/CashEntryRow'
+import { CashEntryRow, CashSourceIcon } from '@/components/cash/CashEntryRow'
 import { CashMovementForm } from '@/components/cash/CashMovementForm'
 import { SummaryCard, SummaryRow } from '@/components/summary/SummaryCard'
 import { Button } from '@/components/ui/button'
@@ -92,20 +92,17 @@ export function DineroPage() {
         />
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          {QUICK_KINDS.map((kind) => {
-            const Icon = cashSourceIcon[kind]
-            return (
-              <Button
-                key={kind}
-                variant={kind === 'reinversion' ? 'default' : 'outline'}
-                className="h-14 justify-start text-base"
-                onClick={() => startAdding({ kind })}
-              >
-                <Icon className="size-5" />
-                {cashKindAction[kind].label}
-              </Button>
-            )
-          })}
+          {QUICK_KINDS.map((kind) => (
+            <Button
+              key={kind}
+              variant={kind === 'reinversion' ? 'default' : 'outline'}
+              className="h-14 justify-start text-base"
+              onClick={() => startAdding({ kind })}
+            >
+              <CashSourceIcon source={kind} className="size-5" />
+              {cashKindAction[kind].label}
+            </Button>
+          ))}
         </div>
       )}
 

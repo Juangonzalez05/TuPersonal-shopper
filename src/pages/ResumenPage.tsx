@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router'
+import { useCashFlow } from '@/api/cash'
 import { useOrders } from '@/api/orders'
 import { useShipments, useUnboxedItems } from '@/api/shipments'
 import { useStock } from '@/api/stock'
@@ -6,6 +7,7 @@ import { ExportButtons } from '@/components/summary/ExportButtons'
 import { SummaryCard, SummaryRow } from '@/components/summary/SummaryCard'
 import { Button } from '@/components/ui/button'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { buildCashFlow } from '@/lib/cash-flow'
 import { errorMessage } from '@/lib/errors'
 import { formatMonth, todayBogota } from '@/lib/format'
 import { buildSummary, monthOptions } from '@/lib/summary'
@@ -18,9 +20,10 @@ export function ResumenPage() {
   const shipments = useShipments()
   const unboxed = useUnboxedItems()
   const stock = useStock()
+  const cash = useCashFlow()
   const [params, setParams] = useSearchParams()
 
-  const queries = [orders, shipments, unboxed, stock]
+  const queries = [orders, shipments, unboxed, stock, cash]
   const failed = queries.find((q) => q.isError)
   if (failed) {
     return (
@@ -32,7 +35,7 @@ export function ResumenPage() {
       </div>
     )
   }
-  if (!orders.data || !shipments.data || !unboxed.data || !stock.data) {
+  if (!orders.data || !shipments.data || !unboxed.data || !stock.data || !cash.data) {
     return <p className="py-8 text-center text-muted-foreground">Calculando resumen…</p>
   }
 
@@ -40,11 +43,14 @@ export function ResumenPage() {
   const monthParam = params.get('mes')
   const month =
     monthParam === ALL_MONTHS ? null : monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : today.slice(0, 7)
-  const options = monthOptions(orders.data, shipments.data, today)
+  const options = monthOptions(orders.data, shipments.data, today, cash.data)
   const s = buildSummary(
     { orders: orders.data, shipments: shipments.data, unboxed: unboxed.data, stock: stock.data },
     month,
   )
+  const flow = buildCashFlow(cash.data, month, today)
+  const dineroLink =
+    month === null ? '/dinero?mes=todos' : month === today.slice(0, 7) ? '/dinero' : `/dinero?mes=${month}`
 
   return (
     <div className="grid gap-3">
@@ -82,6 +88,20 @@ export function ResumenPage() {
         <SummaryRow label="Ganancia de los productos" value={s.profit.productsCop} signed />
         <SummaryRow label="Ganancia de los envíos (cajas con costo)" value={s.profit.shippingCop} signed />
         <SummaryRow label="Ganancia total" value={s.profit.totalCop} strong signed />
+      </SummaryCard>
+
+      <SummaryCard title="Flujo de caja" note="por fecha del movimiento">
+        <SummaryRow label="Entró (abonos y plata que metí)" value={flow.inCop} />
+        <SummaryRow label="Salió" value={flow.outCop} />
+        <SummaryRow label="Reinvertido (compras)" value={flow.bySource.reinversion} />
+        <SummaryRow label="Saqué para mí" value={flow.bySource.retiro} />
+        <SummaryRow
+          label={flow.closedMonth ? 'Saldo al cierre del mes' : 'Plata del negocio hoy'}
+          value={flow.balanceCop}
+          strong
+          signed
+          to={dineroLink}
+        />
       </SummaryCard>
 
       <SummaryCard title="Estado de las ventas" note="pedidos">
@@ -136,7 +156,7 @@ export function ResumenPage() {
         />
       </SummaryCard>
 
-      <ExportButtons month={month} orders={orders.data} shipments={shipments.data} />
+      <ExportButtons month={month} orders={orders.data} shipments={shipments.data} cash={cash.data} />
     </div>
   )
 }

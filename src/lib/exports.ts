@@ -1,8 +1,10 @@
-// Los tres CSV de respaldo: pedidos, productos vendidos (como la hoja "Productos y ventas")
-// y cajas (como "Control de envíos"). Fechas dd/MM/yyyy y pesos sin puntos de miles.
+// Los CSV de respaldo: pedidos, productos vendidos (como la hoja "Productos y ventas"),
+// cajas (como "Control de envíos") y flujo de caja. Fechas dd/MM/yyyy y pesos sin puntos de miles.
 
+import type { CashEntry } from '@/api/cash'
 import type { OrderLineExport, OrderSummary } from '@/api/orders'
 import type { Shipment } from '@/api/shipments'
+import { cashSourceLabel, isIncome } from './cash-flow'
 import { csvDecimal, csvPercent, toCsv } from './csv'
 import { formatDate } from './format'
 import { deliveryStatusLabel, paymentStatusLabel } from './order-labels'
@@ -111,6 +113,22 @@ export function shipmentsCsv(shipments: Shipment[]): string {
       s.realCostCop,
       s.differenceCop,
       s.notes,
+    ]),
+  )
+}
+
+/** Flujo de caja: el valor lleva el signo (+ entra, − sale) para sumarlo directo en Excel. */
+export function cashFlowCsv(entries: CashEntry[]): string {
+  return toCsv(
+    ['Fecha', 'Tipo', 'Entra o sale', 'Valor (COP)', 'Cliente o caja', 'Medio', 'Nota'],
+    entries.map((e) => [
+      formatDate(e.movedOn),
+      cashSourceLabel[e.source],
+      isIncome(e.source) ? 'Entra' : 'Sale',
+      e.signedCop,
+      e.label,
+      e.method,
+      e.note,
     ]),
   )
 }
