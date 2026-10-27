@@ -13,6 +13,7 @@ export function StockRow({ item }: { item: StockItem }) {
         <p className="truncate font-medium">{item.name}</p>
         <p className="text-xs text-muted-foreground">
           ingresado {item.enteredQty} · vendido {item.soldQty}
+          {item.inTransitQty > 0 && <span className="font-medium text-amber-700"> · +{item.inTransitQty} en camino</span>}
         </p>
         <StockBadge state={item.state} />
       </div>

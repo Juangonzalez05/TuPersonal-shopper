@@ -24,12 +24,15 @@ const order = (o: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'orderedOn' 
 const shipment = (s: Partial<Shipment> & Pick<Shipment, 'id' | 'state'>): Shipment => ({
   code: s.id,
   carrier: null,
+  shippedOn: null,
+  expectedOn: null,
   arrivedOn: null,
   realCostCop: null,
   notes: null,
   itemsCount: 0,
   chargedCop: 0,
   differenceCop: null,
+  stockUnits: 0,
   createdAt: '2026-10-01T15:00:00Z',
   ...s,
 })
@@ -49,6 +52,7 @@ const stockItem = (productId: string, availableQty: number, state: StockItem['st
   productId,
   name: productId,
   enteredQty: Math.max(availableQty, 0),
+  inTransitQty: 0,
   soldQty: 0,
   availableQty,
   state,
@@ -64,17 +68,17 @@ const data = {
     order({ id: 'sept', orderedOn: '2026-09-20', status: 'comprado', itemsPriceCop: 20_000, shippingChargedCop: 5_000, totalCop: 25_000, itemsCostCop: 15_000, itemsProfitCop: 5_000, balanceCop: 25_000, incompleteItems: 1 }),
   ],
   shipments: [
-    shipment({ id: 'ENV-001', state: 'cerrada', arrivedOn: '2026-10-18', realCostCop: 10_000, chargedCop: 15_000, differenceCop: 5_000 }),
-    // Sin fecha de llegada: cuenta en el mes en que se creó (en hora de Bogotá).
-    shipment({ id: 'ENV-002', state: 'por_cerrar', createdAt: '2026-11-01T03:00:00Z' }),
-    shipment({ id: 'ENV-000', state: 'cerrada', arrivedOn: '2026-09-30', realCostCop: 8_000, chargedCop: 5_000, differenceCop: -3_000 }),
+    shipment({ id: 'ENV-001', state: 'llego', arrivedOn: '2026-10-18', realCostCop: 10_000, chargedCop: 15_000, differenceCop: 5_000 }),
+    // Sin llegada ni despacho: cuenta en el mes en que se creó (en hora de Bogotá). Aún sin costo.
+    shipment({ id: 'ENV-002', state: 'en_camino', createdAt: '2026-11-01T03:00:00Z' }),
+    shipment({ id: 'ENV-000', state: 'llego', arrivedOn: '2026-09-30', realCostCop: 8_000, chargedCop: 5_000, differenceCop: -3_000 }),
   ],
   unboxed: [unboxed('u-oct', '2026-10-05', 12_000), unboxed('u-sep', '2026-09-20', 5_000)],
   stock: [
     stockItem('a', 3, 'disponible'),
     stockItem('b', 0, 'agotado'),
     stockItem('c', -1, 'revisar'),
-    stockItem('d', 5, 'disponible'),
+    { ...stockItem('d', 5, 'disponible'), inTransitQty: 2 },
   ],
 }
 
@@ -89,10 +93,10 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
       // Como el SUM del Excel: el pago de más de B resta.
       balanceCop: 73_100,
     })
-    expect(summary.costs).toEqual({ productsCop: 112_946, closedShipmentsCop: 10_000 })
+    expect(summary.costs).toEqual({ productsCop: 112_946, shippingCostCop: 10_000 })
     expect(summary.profit).toEqual({ productsCop: 45_154, shippingCop: 5_000, totalCop: 50_154 })
     expect(summary.sales).toEqual({ pendiente: 0, separado: 1, pagado: 1, incomplete: 0, quotes: 1 })
-    expect(summary.shipments).toEqual({ closed: 1, open: 1, unboxedShippingCop: 12_000 })
+    expect(summary.shipments).toEqual({ arrived: 1, inTransit: 1, withoutCost: 1, unboxedShippingCop: 12_000 })
   })
 
   it('todos los meses suma todo, también la pérdida de una caja', () => {
@@ -104,19 +108,19 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
       paidCop: 100_000,
       balanceCop: 98_100,
     })
-    expect(summary.costs).toEqual({ productsCop: 127_946, closedShipmentsCop: 18_000 })
+    expect(summary.costs).toEqual({ productsCop: 127_946, shippingCostCop: 18_000 })
     expect(summary.profit).toEqual({ productsCop: 50_154, shippingCop: 2_000, totalCop: 52_154 })
     expect(summary.sales).toEqual({ pendiente: 1, separado: 1, pagado: 1, incomplete: 1, quotes: 1 })
-    expect(summary.shipments).toEqual({ closed: 2, open: 1, unboxedShippingCop: 17_000 })
+    expect(summary.shipments).toEqual({ arrived: 2, inTransit: 1, withoutCost: 1, unboxedShippingCop: 17_000 })
   })
 
   it('una caja sin llegada cuenta en el mes de creación en Bogotá', () => {
     // 2026-11-01T03:00Z es 31 de octubre a las 10 p. m. en Bogotá.
-    expect(buildSummary(data, '2026-11').shipments.open).toBe(0)
+    expect(buildSummary(data, '2026-11').shipments.inTransit).toBe(0)
   })
 
   it('el inventario es una foto de hoy y no depende del mes', () => {
-    const expected = { products: 4, availableUnits: 8, soldOut: 1, toReview: 1 }
+    const expected = { products: 4, availableUnits: 8, inTransitUnits: 2, soldOut: 1, toReview: 1 }
     expect(buildSummary(data, '2026-10').stock).toEqual(expected)
     expect(buildSummary(data, '2020-01').stock).toEqual(expected)
   })
@@ -125,12 +129,35 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
     const summary = buildSummary(data, '2020-01')
     expect(summary.billing.totalCop).toBe(0)
     expect(summary.profit.totalCop).toBe(0)
-    expect(summary.shipments).toEqual({ closed: 0, open: 0, unboxedShippingCop: 0 })
+    expect(summary.shipments).toEqual({ arrived: 0, inTransit: 0, withoutCost: 0, unboxedShippingCop: 0 })
   })
 })
 
 describe('monthOptions', () => {
   it('meses con datos más el actual, del más reciente al más antiguo y sin repetir', () => {
     expect(monthOptions(data.orders, data.shipments, '2026-12-02')).toEqual(['2026-12', '2026-10', '2026-09'])
+  })
+})
+
+describe('ganancia de envío', () => {
+  it('cuenta una caja en camino apenas tiene costo del envío', () => {
+    const withTransitCost = {
+      ...data,
+      shipments: [
+        ...data.shipments,
+        shipment({
+          id: 'ENV-003',
+          state: 'en_camino',
+          shippedOn: '2026-10-25',
+          realCostCop: 20_000,
+          chargedCop: 27_000,
+          differenceCop: 7_000,
+        }),
+      ],
+    }
+    const summary = buildSummary(withTransitCost, '2026-10')
+    expect(summary.costs.shippingCostCop).toBe(30_000)
+    expect(summary.profit.shippingCop).toBe(12_000)
+    expect(summary.shipments).toMatchObject({ inTransit: 2, withoutCost: 1 })
   })
 })
