@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import type { CashEntry } from '@/api/cash'
 import type { OrderLineExport, OrderSummary } from '@/api/orders'
 import type { Shipment } from '@/api/shipments'
 import { csvDecimal, csvPercent, toCsv } from './csv'
-import { orderLinesCsv, ordersCsv, shipmentsCsv } from './exports'
+import { cashFlowCsv, orderLinesCsv, ordersCsv, shipmentsCsv } from './exports'
 
 /** Filas del CSV sin BOM ni el salto final. */
 const lines = (csv: string) => csv.replace(/^﻿/, '').trimEnd().split('\r\n')
@@ -108,5 +109,18 @@ describe('exportaciones', () => {
       createdAt: '2026-10-20T15:00:00Z',
     }
     expect(lines(shipmentsCsv([shipment]))[1]).toBe('ENV-002;Aeropost;20/10/2026;31/10/2026;;En camino;3;4;27000;;;frágil')
+  })
+
+  it('flujo de caja: valor con signo, tipo y cliente o caja', () => {
+    const base = { orderId: null, shipmentId: null, method: null, note: null, createdAt: '' }
+    const entries: CashEntry[] = [
+      { ...base, id: 'a', source: 'abono', amountCop: 50_000, signedCop: 50_000, movedOn: '2026-10-05', label: 'Ana', method: 'Nequi' },
+      { ...base, id: 'b', source: 'reinversion', amountCop: 80_000, signedCop: -80_000, movedOn: '2026-10-06', label: 'Ana', note: 'Amazon' },
+    ]
+    expect(lines(cashFlowCsv(entries))).toEqual([
+      'Fecha;Tipo;Entra o sale;Valor (COP);Cliente o caja;Medio;Nota',
+      '05/10/2026;Abono de cliente;Entra;50000;Ana;Nequi;',
+      '06/10/2026;Reinversión;Sale;-80000;Ana;;Amazon',
+    ])
   })
 })

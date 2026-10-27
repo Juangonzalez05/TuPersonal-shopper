@@ -4,6 +4,7 @@ import { AppLayout, type RouteHandle } from '@/components/layout/AppLayout'
 import { AgregarACajaPage } from '@/pages/AgregarACajaPage'
 import { CajaDetallePage } from '@/pages/CajaDetallePage'
 import { CajasPage } from '@/pages/CajasPage'
+import { DineroPage } from '@/pages/DineroPage'
 import { EditarPedidoPage } from '@/pages/EditarPedidoPage'
 import { InventarioPage } from '@/pages/InventarioPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
             element: <ProductoInventarioPage />,
             handle: handle('Producto', '/inventario'),
           },
+          { path: 'dinero', element: <DineroPage />, handle: handle('Flujo de caja') },
           { path: 'resumen', element: <ResumenPage />, handle: handle('Resumen') },
           { path: '*', element: <Navigate to="/pedidos" replace /> },
         ],

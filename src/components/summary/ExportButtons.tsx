@@ -1,12 +1,13 @@
 import { Download } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import type { CashEntry } from '@/api/cash'
 import { fetchOrderLines, type OrderSummary } from '@/api/orders'
 import type { Shipment } from '@/api/shipments'
 import { Button } from '@/components/ui/button'
 import { downloadCsv } from '@/lib/csv'
 import { errorMessage } from '@/lib/errors'
-import { orderLinesCsv, ordersCsv, shipmentsCsv } from '@/lib/exports'
+import { cashFlowCsv, orderLinesCsv, ordersCsv, shipmentsCsv } from '@/lib/exports'
 import { formatMonth, todayBogota } from '@/lib/format'
 import { monthOf, shipmentMonth } from '@/lib/summary'
 
@@ -15,10 +16,12 @@ type ExportButtonsProps = {
   month: string | null
   orders: OrderSummary[]
   shipments: Shipment[]
+  /** Flujo de caja, del movimiento más nuevo al más viejo. */
+  cash: CashEntry[]
 }
 
 /** Respaldo en CSV del mes elegido. Incluye cotizaciones y anulados: es una copia de todo. */
-export function ExportButtons({ month, orders, shipments }: ExportButtonsProps) {
+export function ExportButtons({ month, orders, shipments, cash }: ExportButtonsProps) {
   const [loadingLines, setLoadingLines] = useState(false)
   const suffix = month ?? `todo-${todayBogota()}`
   const inMonth = (isoDate: string) => month === null || monthOf(isoDate) === month
@@ -45,13 +48,18 @@ export function ExportButtons({ month, orders, shipments }: ExportButtonsProps) 
     downloadCsv(`cajas-${suffix}.csv`, shipmentsCsv(rows))
   }
 
+  const exportCash = () => {
+    const rows = cash.filter((entry) => inMonth(entry.movedOn)).toReversed()
+    downloadCsv(`flujo-de-caja-${suffix}.csv`, cashFlowCsv(rows))
+  }
+
   return (
     <section className="grid gap-2 rounded-lg border p-3">
       <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Exportar (respaldo)</h2>
       <p className="text-sm text-muted-foreground">
         {month ? `CSV de ${formatMonth(month)}.` : 'CSV con todos los meses: el respaldo completo.'} Se abre en Excel.
       </p>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button variant="outline" className="h-11" onClick={exportOrders}>
           <Download />
           Pedidos
@@ -63,6 +71,10 @@ export function ExportButtons({ month, orders, shipments }: ExportButtonsProps) 
         <Button variant="outline" className="h-11" onClick={exportShipments}>
           <Download />
           Cajas
+        </Button>
+        <Button variant="outline" className="h-11" onClick={exportCash}>
+          <Download />
+          Flujo de caja
         </Button>
       </div>
     </section>

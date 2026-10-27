@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { cashKeys } from '@/api/cash'
 import { customerKeys } from '@/api/customers'
 import { fetchAll } from '@/api/fetch-all'
 import { productKeys } from '@/api/products'
@@ -265,6 +266,8 @@ export function useCreateOrder() {
       void queryClient.invalidateQueries({ queryKey: customerKeys.all })
       void queryClient.invalidateQueries({ queryKey: productKeys.all })
       void queryClient.invalidateQueries({ queryKey: stockKeys.all })
+      // El abono inicial entra solo al flujo de caja.
+      void queryClient.invalidateQueries({ queryKey: cashKeys.all })
     },
   })
 }
@@ -285,11 +288,13 @@ export function useUpdateOrder() {
       void queryClient.invalidateQueries({ queryKey: customerKeys.all })
       void queryClient.invalidateQueries({ queryKey: stockKeys.all })
       void queryClient.invalidateQueries({ queryKey: ['shipments'] })
+      // El flujo de caja muestra el cliente de cada abono y compra.
+      void queryClient.invalidateQueries({ queryKey: cashKeys.all })
     },
   })
 }
 
-/** Borrar el pedido completo: sus líneas y abonos se borran con él (cascada). */
+/** Borrar el pedido completo: sus líneas y abonos se borran con él (cascada); sus compras quedan sin pedido. */
 export function useDeleteOrder() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -301,6 +306,7 @@ export function useDeleteOrder() {
       void queryClient.invalidateQueries({ queryKey: orderKeys.all })
       void queryClient.invalidateQueries({ queryKey: stockKeys.all })
       void queryClient.invalidateQueries({ queryKey: ['shipments'] })
+      void queryClient.invalidateQueries({ queryKey: cashKeys.all })
     },
   })
 }

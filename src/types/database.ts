@@ -57,6 +57,57 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_movements: {
+        Row: {
+          amount_cop: number
+          created_at: string
+          id: string
+          kind: string
+          method: string | null
+          moved_on: string
+          note: string | null
+          order_id: string | null
+          owner_id: string
+        }
+        Insert: {
+          amount_cop: number
+          created_at?: string
+          id?: string
+          kind: string
+          method?: string | null
+          moved_on?: string
+          note?: string | null
+          order_id?: string | null
+          owner_id?: string
+        }
+        Update: {
+          amount_cop?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          method?: string | null
+          moved_on?: string
+          note?: string | null
+          order_id?: string | null
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "v_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -412,6 +463,24 @@ export type Database = {
       }
     }
     Views: {
+      v_cash_flow: {
+        Row: {
+          amount_cop: number | null
+          created_at: string | null
+          direction: string | null
+          id: string | null
+          label: string | null
+          method: string | null
+          moved_on: string | null
+          note: string | null
+          order_id: string | null
+          owner_id: string | null
+          shipment_id: string | null
+          signed_cop: number | null
+          source: string | null
+        }
+        Relationships: []
+      }
       v_order_items: {
         Row: {
           cost_cop: number | null

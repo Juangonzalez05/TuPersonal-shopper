@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { CashEntry } from '@/api/cash'
 import type { OrderSummary } from '@/api/orders'
 import type { BoxItem, Shipment } from '@/api/shipments'
 import type { StockItem } from '@/api/stock'
@@ -136,6 +137,28 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
 describe('monthOptions', () => {
   it('meses con datos más el actual, del más reciente al más antiguo y sin repetir', () => {
     expect(monthOptions(data.orders, data.shipments, '2026-12-02')).toEqual(['2026-12', '2026-10', '2026-09'])
+  })
+
+  it('incluye los meses que solo tienen movimientos de plata', () => {
+    const gasto: CashEntry = {
+      id: 'm1',
+      source: 'gasto',
+      amountCop: 5_000,
+      signedCop: -5_000,
+      movedOn: '2026-08-14',
+      orderId: null,
+      shipmentId: null,
+      label: null,
+      method: null,
+      note: null,
+      createdAt: '2026-08-14T15:00:00Z',
+    }
+    expect(monthOptions(data.orders, data.shipments, '2026-12-02', [gasto])).toEqual([
+      '2026-12',
+      '2026-10',
+      '2026-09',
+      '2026-08',
+    ])
   })
 })
 

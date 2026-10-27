@@ -1,4 +1,4 @@
-import { Boxes, ChartColumn, ClipboardList, Package, Plus, type LucideIcon } from 'lucide-react'
+import { Boxes, ChartColumn, ClipboardList, Package, Plus, Wallet, type LucideIcon } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +23,7 @@ const items: NavItem[] = [
   { to: '/pedidos/nuevo', label: 'Nuevo', icon: Plus, primary: true },
   { to: '/cajas', label: 'Cajas', icon: Package },
   { to: '/inventario', label: 'Inventario', icon: Boxes },
+  { to: '/dinero', label: 'Dinero', icon: Wallet },
   { to: '/resumen', label: 'Resumen', icon: ChartColumn },
 ]
 
@@ -34,7 +35,7 @@ export function BottomNav() {
       aria-label="Navegación principal"
       className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
-      <ul className="mx-auto grid h-16 max-w-2xl grid-cols-5">
+      <ul className="mx-auto grid h-16 max-w-2xl grid-cols-6">
         {items.map(({ to, label, icon: Icon, isActive: matches, primary }) => {
           const isActive = matches ? matches(pathname) : pathname === to || pathname.startsWith(`${to}/`)
           return (
@@ -49,7 +50,7 @@ export function BottomNav() {
               >
                 {/* Barrita dorada sobre la sección activa. */}
                 {isActive && !primary && (
-                  <span aria-hidden className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-gold" />
+                  <span aria-hidden className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-gold" />
                 )}
                 {primary ? (
                   <span

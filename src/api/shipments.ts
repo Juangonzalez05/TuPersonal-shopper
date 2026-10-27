@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { cashKeys } from '@/api/cash'
 import { fetchAll } from '@/api/fetch-all'
 import { orderKeys } from '@/api/orders'
 import { stockKeys } from '@/api/stock'
@@ -224,6 +225,8 @@ function useInvalidateShipments() {
     // El detalle del pedido muestra la caja de cada línea y el inventario cuenta lo que viene en camino.
     void queryClient.invalidateQueries({ queryKey: orderKeys.all })
     void queryClient.invalidateQueries({ queryKey: stockKeys.all })
+    // El costo del envío de cada caja sale solo en el flujo de caja.
+    void queryClient.invalidateQueries({ queryKey: cashKeys.all })
   }
 }
 

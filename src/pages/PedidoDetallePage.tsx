@@ -1,15 +1,19 @@
-import { Boxes, Copy, Package, Pencil, Trash2 } from 'lucide-react'
+import { Boxes, Copy, Package, Pencil, ShoppingBag, Trash2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
+import { useOrderPurchases } from '@/api/cash'
 import { useDeleteOrder, useOrder, useUpdateOrderStatus, type OrderDetail, type Payment } from '@/api/orders'
 import { useDeletePayment } from '@/api/payments'
+import { CashEntryRow } from '@/components/cash/CashEntryRow'
+import { CashMovementForm } from '@/components/cash/CashMovementForm'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PaymentForm } from '@/components/orders/PaymentForm'
 import { DeliveryBadge, IncompleteBadge, PaymentBadge } from '@/components/orders/StatusBadges'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { toCashMovement } from '@/lib/cash-flow'
 import { copyText } from '@/lib/clipboard'
 import { errorMessage } from '@/lib/errors'
 import { formatCop, formatDate, formatPercent, formatPhone, formatTrm, formatUsd } from '@/lib/format'
@@ -263,6 +267,8 @@ function OrderView({ order }: { order: OrderDetail }) {
         )}
       </section>
 
+      <OrderPurchases order={order} />
+
       <Button variant="ghost" className="h-11 text-destructive" onClick={() => setConfirmDelete(true)}>
         <Trash2 />
         Eliminar pedido
@@ -289,7 +295,7 @@ function OrderView({ order }: { order: OrderDetail }) {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title="¿Eliminar el pedido completo?"
-        description="Se borran el pedido, sus productos y sus abonos. No se puede deshacer. Si solo se cayó, mejor cámbialo a Anulado."
+        description="Se borran el pedido, sus productos y sus abonos. Las compras anotadas siguen en el flujo de caja, sin pedido. No se puede deshacer. Si solo se cayó, mejor cámbialo a Anulado."
         confirmLabel="Eliminar pedido"
         destructive
         onConfirm={() => void removeOrder()}
@@ -304,6 +310,78 @@ function OrderView({ order }: { order: OrderDetail }) {
         onConfirm={() => paymentToDelete && void removePayment(paymentToDelete)}
       />
     </div>
+  )
+}
+
+/** Lo que se reinvirtió en comprar este pedido: se anota aquí y queda en el flujo de caja. */
+function OrderPurchases({ order }: { order: OrderDetail }) {
+  const purchases = useOrderPurchases(order.id)
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const entries = purchases.data ?? []
+  const totalCop = entries.reduce((total, entry) => total + entry.amountCop, 0)
+
+  return (
+    <section className="grid gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="font-semibold">Compras de este pedido</h3>
+        {totalCop > 0 && <span className="text-sm text-muted-foreground tabular-nums">{formatCop(totalCop)}</span>}
+      </div>
+      {purchases.isError ? (
+        <p className="text-sm text-destructive">No se pudieron cargar: {errorMessage(purchases.error)}</p>
+      ) : entries.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Anota lo que pagaste al comprarlo: queda como reinversión en el flujo de caja.
+        </p>
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {entries.map((entry) => {
+            const movement = toCashMovement(entry)
+            return (
+              <li key={entry.id}>
+                {editingId === entry.id && movement ? (
+                  <div className="p-2">
+                    <CashMovementForm kind={movement.kind} movement={movement} onDone={() => setEditingId(null)} />
+                  </div>
+                ) : (
+                  <CashEntryRow
+                    entry={entry}
+                    onEdit={() => {
+                      setAdding(false)
+                      setEditingId(entry.id)
+                    }}
+                  />
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {adding ? (
+        <CashMovementForm
+          kind="reinversion"
+          order={{
+            id: order.id,
+            customerName: order.customerName,
+            orderedOn: order.orderedOn,
+            costCop: order.itemsCostCop,
+          }}
+          onDone={() => setAdding(false)}
+        />
+      ) : (
+        <Button
+          variant="outline"
+          className="h-11"
+          onClick={() => {
+            setEditingId(null)
+            setAdding(true)
+          }}
+        >
+          <ShoppingBag />
+          Anotar compra
+        </Button>
+      )}
+    </section>
   )
 }
 
