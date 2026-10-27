@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { cashKeys } from '@/api/cash'
 import { orderKeys } from '@/api/orders'
 import { supabase } from '@/lib/supabase'
 
@@ -9,8 +10,17 @@ export type NewPayment = {
   note: string | null
 }
 
-export function useAddPayment(orderId: string) {
+function useInvalidatePayments() {
   const queryClient = useQueryClient()
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: orderKeys.all })
+    // Los abonos entran solos al flujo de caja.
+    void queryClient.invalidateQueries({ queryKey: cashKeys.all })
+  }
+}
+
+export function useAddPayment(orderId: string) {
+  const invalidate = useInvalidatePayments()
   return useMutation({
     mutationFn: async (payment: NewPayment) => {
       const { error } = await supabase.from('payments').insert({
@@ -22,23 +32,23 @@ export function useAddPayment(orderId: string) {
       })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: orderKeys.all }),
+    onSuccess: invalidate,
   })
 }
 
 export function useDeletePayment() {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidatePayments()
   return useMutation({
     mutationFn: async (paymentId: string) => {
       const { error } = await supabase.from('payments').delete().eq('id', paymentId)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: orderKeys.all }),
+    onSuccess: invalidate,
   })
 }
 
 export function useUpdatePayment() {
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidatePayments()
   return useMutation({
     mutationFn: async ({ id, ...payment }: NewPayment & { id: string }) => {
       const { error } = await supabase
@@ -52,6 +62,6 @@ export function useUpdatePayment() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: orderKeys.all }),
+    onSuccess: invalidate,
   })
 }
