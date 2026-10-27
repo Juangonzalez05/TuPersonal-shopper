@@ -36,3 +36,22 @@ export function useDeletePayment() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: orderKeys.all }),
   })
 }
+
+export function useUpdatePayment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...payment }: NewPayment & { id: string }) => {
+      const { error } = await supabase
+        .from('payments')
+        .update({
+          amount_cop: payment.amountCop,
+          paid_on: payment.paidOn,
+          method: payment.method,
+          note: payment.note,
+        })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: orderKeys.all }),
+  })
+}

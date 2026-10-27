@@ -1,8 +1,8 @@
-import { Boxes, Copy, Package, Trash2 } from 'lucide-react'
+import { Boxes, Copy, Package, Pencil, Trash2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
-import { useOrder, useUpdateOrderStatus, type OrderDetail } from '@/api/orders'
+import { useDeleteOrder, useOrder, useUpdateOrderStatus, type OrderDetail, type Payment } from '@/api/orders'
 import { useDeletePayment } from '@/api/payments'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PaymentForm } from '@/components/orders/PaymentForm'
@@ -31,8 +31,12 @@ export function PedidoDetallePage() {
 }
 
 function OrderView({ order }: { order: OrderDetail }) {
+  const navigate = useNavigate()
   const updateStatus = useUpdateOrderStatus(order.id)
   const deletePayment = useDeletePayment()
+  const deleteOrder = useDeleteOrder()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [confirmCopy, setConfirmCopy] = useState(false)
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null)
@@ -60,6 +64,16 @@ function OrderView({ order }: { order: OrderDetail }) {
     else toast.error('No se pudo copiar el mensaje.')
   }
 
+  const removeOrder = async () => {
+    try {
+      await deleteOrder.mutateAsync(order.id)
+      toast.success('Pedido eliminado')
+      navigate('/pedidos', { replace: true })
+    } catch (error) {
+      toast.error(`No se pudo eliminar: ${errorMessage(error)}`)
+    }
+  }
+
   const removePayment = async (paymentId: string) => {
     try {
       await deletePayment.mutateAsync(paymentId)
@@ -72,12 +86,21 @@ function OrderView({ order }: { order: OrderDetail }) {
   return (
     <div className="grid gap-5">
       <section className="grid gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">{order.customerName}</h2>
-          <p className="text-sm text-muted-foreground">
-            {formatDate(order.orderedOn)}
-            {order.customerPhone && <> · WhatsApp {formatPhone(order.customerPhone)}</>}
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold">{order.customerName}</h2>
+            <p className="text-sm text-muted-foreground">
+              {formatDate(order.orderedOn)}
+              {order.customerPhone && <> · WhatsApp {formatPhone(order.customerPhone)}</>}
+            </p>
+            {order.notes && <p className="mt-1 text-sm">{order.notes}</p>}
+          </div>
+          <Button asChild variant="outline" size="sm" className="h-10 shrink-0">
+            <Link to={`/pedidos/${order.id}/editar`}>
+              <Pencil />
+              Editar
+            </Link>
+          </Button>
         </div>
         <div className="flex flex-wrap gap-1.5">
           <PaymentBadge status={order.paymentStatus} />
@@ -123,11 +146,16 @@ function OrderView({ order }: { order: OrderDetail }) {
                 <p className="shrink-0 font-medium tabular-nums">{formatCop(item.priceCop)}</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                {item.unitCostUsd > 0
-                  ? `${formatUsd(item.unitCostUsd)} × TRM ${formatTrm(item.trm)} · ${
-                      item.markupPct !== null ? formatPercent(item.markupPct) : 'sin %'
-                    } · costo ${formatCop(item.costCop)} · ganancia ${formatCop(item.profitCop)}`
-                  : 'Sin costo para ti'}
+                {[
+                  item.priceCop > 0 && `${formatCop(Math.round(item.priceCop / item.qty))} c/u`,
+                  item.unitCostUsd > 0
+                    ? `costo ${formatUsd(item.unitCostUsd)} × TRM ${formatTrm(item.trm)} = ${formatCop(item.costCop)}`
+                    : 'sin costo para ti',
+                  item.markupEffective !== null && item.priceCop > 0 && `incremento ${formatPercent(item.markupEffective)}`,
+                  `ganancia ${formatCop(item.profitCop)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
                 {item.shippingChargedCop > 0 && ` · envío ${formatCop(item.shippingChargedCop)}`}
               </p>
               {(item.fromStock || item.shipmentId || item.incomplete) && (
@@ -150,7 +178,7 @@ function OrderView({ order }: { order: OrderDetail }) {
                   )}
                   {item.incomplete && (
                     <IncompleteBadge>
-                      {`Incompleta · ${[item.trm === 0 && 'falta TRM', item.markupPct === null && 'falta %']
+                      {`Incompleta · ${[item.trm === 0 && 'falta TRM', item.markupPct === null && item.unitPriceCop === null && 'falta precio']
                         .filter(Boolean)
                         .join(' y ')}`}
                     </IncompleteBadge>
@@ -188,12 +216,26 @@ function OrderView({ order }: { order: OrderDetail }) {
           <ul className="divide-y rounded-lg border">
             {order.payments.map((payment) => (
               <li key={payment.id} className="flex items-center gap-3 p-3">
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  aria-label="Editar abono"
+                  onClick={() => setEditingPayment(payment)}
+                >
                   <p className="font-medium tabular-nums">{formatCop(payment.amountCop)}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {[formatDate(payment.paidOn), payment.method, payment.note].filter(Boolean).join(' · ')}
                   </p>
-                </div>
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 text-muted-foreground"
+                  aria-label="Editar abono"
+                  onClick={() => setEditingPayment(payment)}
+                >
+                  <Pencil className="size-5" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -207,9 +249,24 @@ function OrderView({ order }: { order: OrderDetail }) {
             ))}
           </ul>
         )}
-        {/* La key reinicia el formulario con el nuevo saldo después de cada abono. */}
-        <PaymentForm key={order.balanceCop} orderId={order.id} balanceCop={order.balanceCop} />
+        {editingPayment ? (
+          <PaymentForm
+            key={editingPayment.id}
+            orderId={order.id}
+            balanceCop={order.balanceCop}
+            payment={editingPayment}
+            onDone={() => setEditingPayment(null)}
+          />
+        ) : (
+          // La key reinicia el formulario con el nuevo saldo después de cada abono.
+          <PaymentForm key={order.balanceCop} orderId={order.id} balanceCop={order.balanceCop} />
+        )}
       </section>
+
+      <Button variant="ghost" className="h-11 text-destructive" onClick={() => setConfirmDelete(true)}>
+        <Trash2 />
+        Eliminar pedido
+      </Button>
 
       <ConfirmDialog
         open={confirmCancel}
@@ -224,9 +281,18 @@ function OrderView({ order }: { order: OrderDetail }) {
         open={confirmCopy}
         onOpenChange={setConfirmCopy}
         title="Hay productos incompletos"
-        description={`${order.incompleteItems === 1 ? 'Un producto no tiene' : `${order.incompleteItems} productos no tienen`} TRM o %, así que su precio puede estar mal. ¿Copiar el mensaje igual?`}
+        description={`${order.incompleteItems === 1 ? 'Un producto no tiene' : `${order.incompleteItems} productos no tienen`} TRM o precio, así que el total puede estar mal. ¿Copiar el mensaje igual?`}
         confirmLabel="Copiar igual"
         onConfirm={() => void copyMessage()}
+      />
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="¿Eliminar el pedido completo?"
+        description="Se borran el pedido, sus productos y sus abonos. No se puede deshacer. Si solo se cayó, mejor cámbialo a Anulado."
+        confirmLabel="Eliminar pedido"
+        destructive
+        onConfirm={() => void removeOrder()}
       />
       <ConfirmDialog
         open={paymentToDelete !== null}

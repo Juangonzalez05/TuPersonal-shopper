@@ -2,7 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { useAddPayment } from '@/api/payments'
+import type { Payment } from '@/api/orders'
+import { useAddPayment, useUpdatePayment } from '@/api/payments'
 import { NumberField } from '@/components/NumberField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,40 +22,60 @@ const paymentSchema = z.object({
 
 type PaymentValues = z.infer<typeof paymentSchema>
 
-/** Registrar un abono. El monto arranca con el saldo pendiente. */
-export function PaymentForm({ orderId, balanceCop }: { orderId: string; balanceCop: number }) {
+type PaymentFormProps = {
+  orderId: string
+  balanceCop: number
+  /** Si viene, el formulario edita ese abono en vez de registrar uno nuevo. */
+  payment?: Payment
+  onDone?: () => void
+}
+
+/** Registrar un abono (el monto arranca con el saldo pendiente) o corregir uno ya registrado. */
+export function PaymentForm({ orderId, balanceCop, payment, onDone }: PaymentFormProps) {
   const addPayment = useAddPayment(orderId)
+  const updatePayment = useUpdatePayment()
+  const pending = addPayment.isPending || updatePayment.isPending
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<PaymentValues>({
     resolver: zodResolver(paymentSchema),
-    defaultValues: {
-      amount: balanceCop > 0 ? String(balanceCop) : '',
-      paidOn: todayBogota(),
-      method: '',
-      note: '',
-    },
+    defaultValues: payment
+      ? {
+          amount: String(payment.amountCop),
+          paidOn: payment.paidOn,
+          method: payment.method ?? '',
+          note: payment.note ?? '',
+        }
+      : {
+          amount: balanceCop > 0 ? String(balanceCop) : '',
+          paidOn: todayBogota(),
+          method: '',
+          note: '',
+        },
   })
 
   const onSubmit = handleSubmit(async (values) => {
+    const fields = {
+      amountCop: parseCop(values.amount)!,
+      paidOn: values.paidOn,
+      method: values.method || null,
+      note: values.note.trim() || null,
+    }
     try {
-      await addPayment.mutateAsync({
-        amountCop: parseCop(values.amount)!,
-        paidOn: values.paidOn,
-        method: values.method || null,
-        note: values.note.trim() || null,
-      })
-      toast.success('Abono registrado')
+      if (payment) await updatePayment.mutateAsync({ id: payment.id, ...fields })
+      else await addPayment.mutateAsync(fields)
+      toast.success(payment ? 'Abono actualizado' : 'Abono registrado')
+      onDone?.()
     } catch (error) {
-      toast.error(`No se pudo registrar el abono: ${errorMessage(error)}`)
+      toast.error(`No se pudo guardar el abono: ${errorMessage(error)}`)
     }
   })
 
   return (
     <form noValidate onSubmit={onSubmit} className="grid gap-3 rounded-lg border p-3">
-      <h3 className="font-medium">Registrar abono</h3>
+      <h3 className="font-medium">{payment ? 'Editar abono' : 'Registrar abono'}</h3>
       <div className="grid grid-cols-2 gap-3">
         <NumberField label="Valor" prefix="$" error={errors.amount?.message} {...register('amount')} />
         <div className="grid gap-1.5">
@@ -82,9 +103,16 @@ export function PaymentForm({ orderId, balanceCop }: { orderId: string; balanceC
           <Input id="payment-note" className="h-11 text-base" placeholder="Opcional" {...register('note')} />
         </div>
       </div>
-      <Button type="submit" className="h-11" disabled={addPayment.isPending}>
-        {addPayment.isPending ? 'Guardando…' : 'Registrar abono'}
-      </Button>
+      <div className={payment ? 'grid grid-cols-2 gap-3' : 'grid'}>
+        {payment && (
+          <Button type="button" variant="outline" className="h-11" onClick={onDone}>
+            Cancelar
+          </Button>
+        )}
+        <Button type="submit" className="h-11" disabled={pending}>
+          {pending ? 'Guardando…' : payment ? 'Guardar' : 'Registrar abono'}
+        </Button>
+      </div>
     </form>
   )
 }
