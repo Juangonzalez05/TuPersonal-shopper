@@ -57,6 +57,7 @@ describe('exportaciones', () => {
       balanceCop: 77_000,
       paymentStatus: 'separado',
       incompleteItems: 0,
+      stockShippingCop: 0,
     }
     expect(lines(ordersCsv([order]))[1]).toBe(
       '05/10/2026;María;3001234567;Comprado;Separado;112000;15000;127000;80000;32000;50000;77000;0;',
@@ -91,7 +92,7 @@ describe('exportaciones', () => {
     )
   })
 
-  it('cajas: con despacho, llegada estimada e inventario; sin ganancia mientras no hay costo', () => {
+  it('cajas: con despacho, llegada estimada e inventario; sin comparativa mientras no hay costo', () => {
     const shipment: Shipment = {
       id: 's1',
       code: 'ENV-002',
@@ -104,11 +105,45 @@ describe('exportaciones', () => {
       itemsCount: 3,
       chargedCop: 27_000,
       state: 'en_camino',
-      differenceCop: null,
       stockUnits: 4,
+      productsCount: null,
+      clientUnits: 3,
+      unitsTotal: 7,
+      costPerUnitCop: null,
+      clientsRealCop: null,
+      differenceCop: null,
+      otherRealCop: null,
       createdAt: '2026-10-20T15:00:00Z',
     }
-    expect(lines(shipmentsCsv([shipment]))[1]).toBe('ENV-002;Aeropost;20/10/2026;31/10/2026;;En camino;3;4;27000;;;frágil')
+    expect(lines(shipmentsCsv([shipment]))[1]).toBe('ENV-002;Aeropost;20/10/2026;31/10/2026;;En camino;7;3;4;;;27000;;;;frágil')
+  })
+
+  it('cajas: con costo, la comparativa por producto', () => {
+    const shipment: Shipment = {
+      id: 's2',
+      code: 'ENV-003',
+      carrier: null,
+      shippedOn: '2026-10-01',
+      expectedOn: null,
+      arrivedOn: '2026-10-15',
+      realCostCop: 309_000,
+      notes: null,
+      itemsCount: 1,
+      chargedCop: 60_000,
+      state: 'llego',
+      stockUnits: 3,
+      productsCount: 20,
+      clientUnits: 2,
+      unitsTotal: 20,
+      costPerUnitCop: 15_450,
+      clientsRealCop: 30_900,
+      differenceCop: 29_100,
+      otherRealCop: 278_100,
+      createdAt: '2026-10-01T15:00:00Z',
+    }
+    expect(lines(shipmentsCsv([shipment]))[1]).toBe(
+      'ENV-003;;01/10/2026;;15/10/2026;Llegó;20;2;3;309000;15450;60000;30900;29100;278100;',
+    )
   })
 
   it('flujo de caja: valor con signo, tipo y cliente o caja', () => {

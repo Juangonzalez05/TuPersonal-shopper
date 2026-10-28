@@ -361,6 +361,7 @@ export type Database = {
           id: string
           notes: string | null
           owner_id: string
+          products_count: number | null
           real_cost_cop: number | null
           shipped_on: string | null
         }
@@ -373,6 +374,7 @@ export type Database = {
           id?: string
           notes?: string | null
           owner_id?: string
+          products_count?: number | null
           real_cost_cop?: number | null
           shipped_on?: string | null
         }
@@ -385,6 +387,7 @@ export type Database = {
           id?: string
           notes?: string | null
           owner_id?: string
+          products_count?: number | null
           real_cost_cop?: number | null
           shipped_on?: string | null
         }
@@ -566,6 +569,7 @@ export type Database = {
           payment_status: string | null
           shipping_charged_cop: number | null
           status: string | null
+          stock_shipping_cop: number | null
           total_cop: number | null
         }
         Relationships: [
@@ -583,18 +587,24 @@ export type Database = {
           arrived_on: string | null
           carrier: string | null
           charged_cop: number | null
+          client_units: number | null
+          clients_real_cop: number | null
           code: string | null
+          cost_per_unit_cop: number | null
           created_at: string | null
           difference_cop: number | null
           expected_on: string | null
           id: string | null
           items_count: number | null
           notes: string | null
+          other_real_cop: number | null
           owner_id: string | null
+          products_count: number | null
           real_cost_cop: number | null
           shipped_on: string | null
           state: string | null
           stock_units: number | null
+          units_total: number | null
         }
         Relationships: []
       }
@@ -633,6 +643,7 @@ export type Database = {
           p_code: string
           p_expected_on?: string
           p_notes?: string
+          p_products_count?: number
           p_real_cost_cop?: number
           p_shipped_on?: string
           p_stock?: Json

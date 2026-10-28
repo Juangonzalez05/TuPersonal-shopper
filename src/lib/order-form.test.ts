@@ -140,6 +140,7 @@ describe('editar pedido', () => {
     balanceCop: 127_000,
     paymentStatus: 'pendiente',
     incompleteItems: 0,
+    stockShippingCop: 0,
     payments: [],
     items: [
       {

@@ -27,14 +27,14 @@ begin
 
     v_box := public.create_shipment(
       p_code => 'prueba-caja', p_carrier => 'Casillero', p_shipped_on => current_date,
-      p_expected_on => current_date + 10, p_real_cost_cop => 50000,
+      p_expected_on => current_date + 10, p_real_cost_cop => 50000, p_products_count => 10,
       p_stock => jsonb_build_array(
         jsonb_build_object('product_id', v_product, 'qty', 2, 'unit_cost_usd', 5),
         jsonb_build_object('product_name', '  Producto   nuevo de prueba ', 'qty', 4)));
 
-    select format('%s/%s/%s/%s', code, state, stock_units, real_cost_cop) into v_got
-      from public.v_shipments where id = v_box;
-    assert v_got = 'PRUEBA-CAJA/en_camino/6/50000', 'Caja creada: ' || v_got;
+    select format('%s/%s/%s/%s/%s/%s', code, state, stock_units, real_cost_cop, products_count, cost_per_unit_cop)
+      into v_got from public.v_shipments where id = v_box;
+    assert v_got = 'PRUEBA-CAJA/en_camino/6/50000/10/5000', 'Caja creada: ' || v_got;
 
     select id into v_new from public.products where name = 'Producto nuevo de prueba';
     assert v_new is not null, 'No se creó el producto nuevo con el nombre normalizado';

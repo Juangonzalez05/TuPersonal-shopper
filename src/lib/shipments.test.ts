@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boxStockFromRows, nextShipmentCode, shipmentFields, shipmentSubtitle } from './shipments'
+import { boxStockFromRows, lineShippingReal, nextShipmentCode, shipmentFields, shipmentSubtitle } from './shipments'
 
 describe('nextShipmentCode', () => {
   it('empieza en ENV-001', () => {
@@ -28,6 +28,7 @@ describe('shipmentFields', () => {
         shippedOn: '2026-10-20',
         expectedOn: '',
         realCost: '85.000',
+        productsCount: '20',
         notes: ' frágil ',
       }),
     ).toEqual({
@@ -36,8 +37,33 @@ describe('shipmentFields', () => {
       shippedOn: '2026-10-20',
       expectedOn: null,
       realCostCop: 85_000,
+      productsCount: 20,
       notes: 'frágil',
     })
+  })
+
+  it('productos en la caja: vacío, cero o con decimales quedan sin número', () => {
+    const base = { code: 'ENV-1', carrier: '', shippedOn: '', expectedOn: '', realCost: '', notes: '' }
+    expect(shipmentFields({ ...base, productsCount: '' }).productsCount).toBeNull()
+    expect(shipmentFields({ ...base, productsCount: '0' }).productsCount).toBeNull()
+    expect(shipmentFields({ ...base, productsCount: '2,5' }).productsCount).toBeNull()
+  })
+})
+
+describe('lineShippingReal', () => {
+  it('309.000 entre 20 productos: a una línea de 2 le tocan 30.900', () => {
+    expect(lineShippingReal({ realCostCop: 309_000, unitsTotal: 20 }, 2)).toBe(30_900)
+    expect(lineShippingReal({ realCostCop: 309_000, unitsTotal: 20 }, 1)).toBe(15_450)
+  })
+
+  it('redondea al peso', () => {
+    expect(lineShippingReal({ realCostCop: 100_000, unitsTotal: 3 }, 1)).toBe(33_333)
+    expect(lineShippingReal({ realCostCop: 100_000, unitsTotal: 3 }, 2)).toBe(66_667)
+  })
+
+  it('sin costo o sin productos no hay comparativa', () => {
+    expect(lineShippingReal({ realCostCop: null, unitsTotal: 20 }, 1)).toBeNull()
+    expect(lineShippingReal({ realCostCop: 50_000, unitsTotal: 0 }, 1)).toBeNull()
   })
 })
 

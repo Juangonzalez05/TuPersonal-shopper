@@ -10,7 +10,7 @@ export function ShipmentStateBadge({ state }: { state: ShipmentState }) {
   return <Badge className={shipmentStateClass[state]}>{shipmentStateLabel[state]}</Badge>
 }
 
-/** Diferencia de la caja: ganancia en verde, pérdida en rojo, "—" si está por cerrar. */
+/** Ganancia de envíos: en verde, pérdida en rojo, "—" si aún no se puede comparar (sin costo o sin productos). */
 export function DifferenceValue({ value, className }: { value: number | null; className?: string }) {
   if (value === null) return <span className={cn('text-muted-foreground', className)}>—</span>
   return (
@@ -34,10 +34,12 @@ export function ShipmentCard({ shipment }: { shipment: Shipment }) {
         <ShipmentStateBadge state={shipment.state} />
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
-        <Stat label="Productos">{shipment.itemsCount + shipment.stockUnits}</Stat>
+        <Stat label="Productos">{shipment.unitsTotal > 0 ? shipment.unitsTotal : '—'}</Stat>
+        <Stat label="Costo por producto">
+          {shipment.costPerUnitCop === null ? '—' : formatCop(shipment.costPerUnitCop)}
+        </Stat>
         <Stat label="Envío cobrado">{formatCop(shipment.chargedCop)}</Stat>
-        <Stat label="Costo del envío">{shipment.realCostCop === null ? '—' : formatCop(shipment.realCostCop)}</Stat>
-        <Stat label="Ganancia de envío">
+        <Stat label="Ganancia de envíos">
           <DifferenceValue value={shipment.differenceCop} />
         </Stat>
       </dl>

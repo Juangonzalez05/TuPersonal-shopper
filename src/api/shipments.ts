@@ -32,12 +32,25 @@ export type Shipment = {
   notes: string | null
   /** Líneas de pedidos no anulados (como el COUNTIF del Excel). */
   itemsCount: number
+  /** Envío cobrado a los clientes de esas líneas (el estimado que va dentro del precio). */
   chargedCop: number
   state: ShipmentState
-  /** Ganancia de envío: cobrado − costo del envío; null mientras no hay costo. */
-  differenceCop: number | null
   /** Unidades de inventario que trae. */
   stockUnits: number
+  /** Cuántos productos trae, según ella; null = se usan las unidades registradas. */
+  productsCount: number | null
+  /** Unidades de pedidos en la caja. */
+  clientUnits: number
+  /** Productos entre los que se divide el costo: lo escrito, nunca menos que lo registrado. */
+  unitsTotal: number
+  /** Costo del envío ÷ productos; null sin costo o sin productos. */
+  costPerUnitCop: number | null
+  /** Lo que les tocó de la caja a los productos de pedidos; null sin costo o sin productos. */
+  clientsRealCop: number | null
+  /** Ganancia de envíos: envío cobrado − lo que les tocó de la caja; null sin costo o sin productos. */
+  differenceCop: number | null
+  /** Parte del costo que no es de pedidos (inventario / otros): costo, no se compara. */
+  otherRealCop: number | null
   /** Momento de creación (ISO); define el mes de una caja que aún no tiene llegada. */
   createdAt: string
 }
@@ -99,8 +112,14 @@ function toShipment(row: ShipmentRow): Shipment {
     itemsCount: row.items_count ?? 0,
     chargedCop: row.charged_cop ?? 0,
     state: row.state === 'llego' ? 'llego' : 'en_camino',
-    differenceCop: row.difference_cop,
     stockUnits: row.stock_units ?? 0,
+    productsCount: row.products_count,
+    clientUnits: row.client_units ?? 0,
+    unitsTotal: row.units_total ?? 0,
+    costPerUnitCop: row.cost_per_unit_cop,
+    clientsRealCop: row.clients_real_cop,
+    differenceCop: row.difference_cop,
+    otherRealCop: row.other_real_cop,
     createdAt: row.created_at ?? '',
   }
 }
@@ -205,6 +224,8 @@ export type ShipmentFields = {
   arrivedOn?: string | null
   /** null = costo del envío aún desconocido. */
   realCostCop?: number | null
+  /** null = dividir entre las unidades registradas. */
+  productsCount?: number | null
   notes?: string | null
 }
 
@@ -215,6 +236,7 @@ const toColumns = (fields: ShipmentFields) => ({
   expected_on: fields.expectedOn,
   arrived_on: fields.arrivedOn,
   real_cost_cop: fields.realCostCop,
+  products_count: fields.productsCount,
   notes: fields.notes,
 })
 
@@ -245,6 +267,7 @@ export function useCreateShipment() {
         p_expected_on: fields.expectedOn ?? undefined,
         p_real_cost_cop: fields.realCostCop ?? undefined,
         p_notes: fields.notes ?? undefined,
+        p_products_count: fields.productsCount ?? undefined,
         p_stock: stock.map((item) => ({
           product_id: item.productId,
           product_name: item.productName,

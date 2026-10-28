@@ -42,7 +42,8 @@ precio       = ROUND(costo_total × (1 + %), -2)        // a la centena
 total_pagar  = precio + envío_cobrado
 saldo        = total_pagar − abonos
 ganancia_producto = precio − costo_total
-ganancia_envío (por caja cerrada) = Σ envío_cobrado de la caja − costo_real_caja
+costo_por_producto = costo_real_caja / productos_en_la_caja   // los escribe ella; nunca menos que lo registrado
+ganancia_envío (por caja) = Σ envío_cobrado de sus pedidos − costo_real_caja × unidades_de_pedidos / productos_en_la_caja
 estado_pago  = pagado (saldo ≤ 0) | separado (hay abono) | pendiente
 incompleta   = USD > 0 y (TRM = 0 o % vacío)
 ```
@@ -63,7 +64,7 @@ precio (del producto)  = precio_cu × cantidad − envío_cobrado
 ganancia_producto      = precio − costo_total
 ```
 
-El envío cobrado indica qué parte del precio es envío y sigue contando en la ganancia de envío de su caja. Las líneas con % (casos A–C) mantienen la regla del Excel. Ejemplo: el caso A escrito como 63.500 c/u con 15.000 de envío da el mismo costo 80.000, precio 112.000, ganancia 32.000 y total 127.000.
+El envío cobrado indica qué parte del precio es envío y sigue contando en la ganancia de envío de su caja: es un estimado que se compara con lo que le tocó al producto de la caja (costo de la caja ÷ productos que trae). La parte de la caja que no es de pedidos (inventario / otros) y el envío cobrado en ventas del inventario se muestran aparte, sin comparar por ahora. Las líneas con % (casos A–C) mantienen la regla del Excel. Ejemplo: el caso A escrito como 63.500 c/u con 15.000 de envío da el mismo costo 80.000, precio 112.000, ganancia 32.000 y total 127.000.
 
 ## 5. Fases (con prompts para Claude Code)
 

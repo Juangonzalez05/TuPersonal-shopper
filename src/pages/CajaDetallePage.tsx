@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { errorMessage, isUniqueViolation } from '@/lib/errors'
 import { formatCop, formatDate, formatUsd, todayBogota } from '@/lib/format'
-import { shipmentFields, shipmentSubtitle } from '@/lib/shipments'
+import { lineShippingReal, shipmentFields, shipmentSubtitle } from '@/lib/shipments'
 import { cn } from '@/lib/utils'
 
 export function CajaDetallePage() {
@@ -102,10 +102,12 @@ function ShipmentView({ shipment }: { shipment: ShipmentDetail }) {
             shippedOn: shipment.shippedOn ?? '',
             expectedOn: shipment.expectedOn ?? '',
             realCost: shipment.realCostCop === null ? '' : String(shipment.realCostCop),
+            productsCount: shipment.productsCount === null ? '' : String(shipment.productsCount),
             notes: shipment.notes ?? '',
           }}
           carriers={carriers}
           withStock={false}
+          registeredUnits={shipment.clientUnits + shipment.stockUnits}
           submitLabel="Guardar"
           pending={updateShipment.isPending}
           onCancel={() => setEditing(false)}
@@ -142,9 +144,20 @@ function ShipmentView({ shipment }: { shipment: ShipmentDetail }) {
 
       <section>
         <dl className="grid gap-1.5 rounded-lg border p-3 text-sm">
-          <Row label="Productos de clientes">{shipment.itemsCount}</Row>
-          <Row label="Unidades para inventario">{shipment.stockUnits}</Row>
-          <Row label="Envío cobrado a clientes">{formatCop(shipment.chargedCop)}</Row>
+          <Row label="Productos en la caja">
+            {shipment.unitsTotal > 0 ? (
+              shipment.unitsTotal
+            ) : (
+              <button type="button" className="text-primary underline" onClick={() => setEditing(true)}>
+                Escribirlo
+              </button>
+            )}
+          </Row>
+          <p className="-mt-1 text-xs text-muted-foreground">
+            {shipment.clientUnits} de pedidos · {shipment.stockUnits} para inventario
+            {shipment.unitsTotal > shipment.clientUnits + shipment.stockUnits &&
+              ` · ${shipment.unitsTotal - shipment.clientUnits - shipment.stockUnits} otros`}
+          </p>
           <Row label="Costo del envío">
             {shipment.realCostCop === null ? (
               <button type="button" className="text-primary underline" onClick={() => setEditing(true)}>
@@ -154,13 +167,27 @@ function ShipmentView({ shipment }: { shipment: ShipmentDetail }) {
               formatCop(shipment.realCostCop)
             )}
           </Row>
+          <Row label="Costo por producto" strong>
+            {shipment.costPerUnitCop === null ? '—' : formatCop(shipment.costPerUnitCop)}
+          </Row>
           <div className="my-1 border-t" />
-          <Row label="Ganancia de envío" strong>
+          <Row label="Envío cobrado a los pedidos">{formatCop(shipment.chargedCop)}</Row>
+          <Row label="Lo que les tocó de la caja">
+            {shipment.clientsRealCop === null ? '—' : formatCop(shipment.clientsRealCop)}
+          </Row>
+          <Row label="Ganancia de envíos" strong>
             <DifferenceValue value={shipment.differenceCop} />
           </Row>
+          {shipment.otherRealCop !== null && shipment.otherRealCop > 0 && (
+            <Row label="Parte de inventario / otros">{formatCop(shipment.otherRealCop)}</Row>
+          )}
         </dl>
         <p className="mt-1 text-xs text-muted-foreground">
-          Ganancia de envío = lo que cobraste de envío a los clientes de esta caja − el costo del envío.
+          {shipment.costPerUnitCop === null
+            ? shipment.realCostCop === null
+              ? 'Escribe el costo del envío para comparar con lo que cobraste.'
+              : 'Escribe cuántos productos trae la caja para dividir su costo.'
+            : `Cada producto de esta caja costó ${formatCop(shipment.costPerUnitCop)} de envío. La ganancia compara el envío que cobraste a cada pedido con lo que le tocó de la caja.`}
         </p>
       </section>
 
@@ -248,20 +275,32 @@ function ShipmentView({ shipment }: { shipment: ShipmentDetail }) {
         <h3 className="font-semibold">Productos de pedidos de clientes</h3>
         {shipment.items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Aún no tiene productos de pedidos. Agrégalos para que su envío cobrado cuente en la ganancia.
+            Aún no tiene productos de pedidos. Agrégalos para comparar su envío cobrado con lo que les toca de la caja.
           </p>
         ) : (
           <ul className="divide-y rounded-lg border">
             {shipment.items.map((item) => {
               const cancelled = item.orderStatus === 'anulado'
+              const real = cancelled ? null : lineShippingReal(shipment, item.qty)
+              const difference = real === null ? null : item.shippingChargedCop - real
               return (
                 <li key={item.id} className={cn('flex items-center gap-2 p-3', cancelled && 'opacity-60')}>
                   <Link to={`/pedidos/${item.orderId}`} className="min-w-0 flex-1">
                     <p className={cn('truncate font-medium', cancelled && 'line-through')}>
                       {item.qty} × {item.description}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {item.customerName} · envío {formatCop(item.shippingChargedCop)}
+                    <p className="truncate text-xs text-muted-foreground">{item.customerName}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      Envío cobrado {formatCop(item.shippingChargedCop)}
+                      {real !== null && difference !== null && (
+                        <>
+                          {' '}· le tocó {formatCop(real)} ·{' '}
+                          <span className={difference < 0 ? 'text-red-700' : 'text-emerald-700'}>
+                            {difference < 0 ? '−' : '+'}
+                            {formatCop(Math.abs(difference))}
+                          </span>
+                        </>
+                      )}
                     </p>
                     {cancelled && <Badge className="mt-1 bg-red-100 text-red-900">Anulado · no cuenta</Badge>}
                   </Link>
