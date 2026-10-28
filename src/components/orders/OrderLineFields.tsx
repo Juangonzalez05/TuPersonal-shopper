@@ -49,10 +49,13 @@ export function OrderLineFields({
   const { control, register, setValue, trigger, formState } = useFormContext<OrderFormValues>()
   const line = useWatch({ control, name: `lines.${index}` })
   const errors = formState.errors.lines?.[index]
-  const totals = lineTotals(toLineInput(line))
+  const input = toLineInput(line)
+  const totals = lineTotals(input)
   const shortage = line.fromStock && line.productId ? shortages.get(line.productId) : undefined
   const warning = shortage ? stockWarning(shortage.available, shortage.requested, shortage.inTransit) : null
   const markup = impliedMarkup(totals.costCop, totals.priceCop)
+  // El precio c/u ya trae el envío: si el envío es mayor, el producto queda en negativo.
+  const shippingOverPrice = input.unitPriceCop !== null && totals.priceCop < 0
 
   /** Si sale del inventario y el USD está vacío, usa el último costo de ingreso. */
   const prefillCost = (productId: string) => {
@@ -159,7 +162,7 @@ export function OrderLineFields({
           <AlertTriangle className="size-4 shrink-0" />
           {warning}
           {/* Otras líneas piden el mismo producto: el aviso es por el total. */}
-          {shortage && shortage.requested !== toLineInput(line).qty && ` (${shortage.requested} en todo el pedido)`}
+          {shortage && shortage.requested !== input.qty && ` (${shortage.requested} en todo el pedido)`}
         </p>
       )}
 
@@ -181,7 +184,7 @@ export function OrderLineFields({
         />
       </div>
       <NumberField
-        label="Envío / gestión cobrado"
+        label="Envío / gestión (incluido en el precio)"
         prefix="$"
         placeholder="0"
         error={errors?.shipping?.message}
@@ -190,12 +193,25 @@ export function OrderLineFields({
 
       <dl className="grid grid-cols-3 gap-2 rounded-md bg-muted/60 p-2 text-center">
         <LiveValue label="Costo" value={totals.costCop} />
-        <LiveValue label="Precio" value={totals.priceCop} />
+        <LiveValue label="Cobras" value={totals.totalCop} />
         <LiveValue label="Ganancia" value={totals.profitCop} highlight />
       </dl>
-      {markup !== null && totals.priceCop > 0 && (
+      {(totals.shippingChargedCop > 0 || (markup !== null && totals.priceCop > 0)) && (
         <p className="-mt-1 text-center text-xs text-muted-foreground">
-          Incremento sobre el costo: <span className="font-medium text-foreground">{formatPercent(markup)}</span>
+          {totals.shippingChargedCop > 0 && <>Incluye envío {formatCop(totals.shippingChargedCop)}</>}
+          {totals.shippingChargedCop > 0 && markup !== null && totals.priceCop > 0 && ' · '}
+          {markup !== null && totals.priceCop > 0 && (
+            <>
+              Incremento del producto:{' '}
+              <span className="font-medium text-foreground">{formatPercent(markup)}</span>
+            </>
+          )}
+        </p>
+      )}
+      {shippingOverPrice && (
+        <p className="-mt-1 flex items-center gap-1.5 text-sm text-amber-700">
+          <AlertTriangle className="size-4 shrink-0" />
+          El envío es mayor que lo que cobras por este producto.
         </p>
       )}
       {totals.incomplete && (
@@ -209,7 +225,14 @@ function LiveValue({ label, value, highlight }: { label: string; value: number; 
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('text-sm font-medium tabular-nums', highlight && 'text-emerald-700')}>{formatCop(value)}</dd>
+      <dd
+        className={cn(
+          'text-sm font-medium tabular-nums',
+          highlight && (value < 0 ? 'text-red-700' : 'text-emerald-700'),
+        )}
+      >
+        {formatCop(value)}
+      </dd>
     </div>
   )
 }

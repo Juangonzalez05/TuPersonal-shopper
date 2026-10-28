@@ -18,14 +18,16 @@ export function buildOrderMessage(order: MessageOrder): string {
   const kind = isQuote ? 'esta es la cotización' : 'este es el resumen'
   const lines = [`Hola ${order.customerName}, ${kind} de tu pedido del ${formatDate(order.orderedOn)}:`, '']
 
+  // Cada producto con lo que paga el cliente: el envío / gestión va incluido, no se suma aparte.
   for (const item of order.items) {
-    const amount = item.priceCop > 0 ? formatCop(item.priceCop) : 'solo envío/gestión'
+    const amount =
+      item.priceCop > 0
+        ? formatCop(item.priceCop + item.shippingChargedCop)
+        : `${formatCop(item.shippingChargedCop)} (envío/gestión)`
     lines.push(`• ${item.qty} × ${item.description}: ${amount}`)
   }
   lines.push('')
 
-  const shipping = order.items.reduce((sum, item) => sum + item.shippingChargedCop, 0)
-  if (shipping > 0) lines.push(`Envío y gestión: ${formatCop(shipping)}`)
   lines.push(`*Total: ${formatCop(order.totalCop)}*`)
   if (order.paidCop > 0) lines.push(`Abonado: ${formatCop(order.paidCop)}`)
   if (order.balanceCop <= 0) lines.push('*Pagado* ✓')

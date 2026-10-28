@@ -55,6 +55,16 @@ incompleta   = USD > 0 y (TRM = 0 o % vacío)
 
 Estos tres casos van como tests en `pricing.test.ts` y contra las vistas SQL.
 
+**Precio c/u (como se registra hoy en la app).** Si ella escribe el precio c/u al cliente, ese precio **ya incluye el envío/gestión** de la línea:
+
+```
+lo que paga el cliente = precio_cu × cantidad            // el envío no se suma encima
+precio (del producto)  = precio_cu × cantidad − envío_cobrado
+ganancia_producto      = precio − costo_total
+```
+
+El envío cobrado indica qué parte del precio es envío y sigue contando en la ganancia de envío de su caja. Las líneas con % (casos A–C) mantienen la regla del Excel. Ejemplo: el caso A escrito como 63.500 c/u con 15.000 de envío da el mismo costo 80.000, precio 112.000, ganancia 32.000 y total 127.000.
+
 ## 5. Fases (con prompts para Claude Code)
 
 Trabaja **una fase por rama**, usa modo plan antes de codificar, y cierra cada fase con `lint + test + build`.

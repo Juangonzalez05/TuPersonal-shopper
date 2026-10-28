@@ -85,21 +85,52 @@ describe('lineTotals', () => {
   })
 })
 
-describe('precio c/u al cliente', () => {
-  it('caso A escrito con precio: 56.000 c/u da los mismos números y el 40 % sale solo', () => {
-    const line = lineTotals({ ...caseA, markupPct: null, unitPriceCop: 56_000 })
-    expect(line).toMatchObject({ costCop: 80_000, priceCop: 112_000, profitCop: 32_000, incomplete: false })
+describe('precio c/u al cliente (ya incluye el envío)', () => {
+  it('caso A escrito con precio: 63.500 c/u traen los 15.000 de envío y dan los mismos números', () => {
+    const line = lineTotals({ ...caseA, markupPct: null, unitPriceCop: 63_500 })
+    expect(line).toMatchObject({
+      costCop: 80_000,
+      priceCop: 112_000,
+      profitCop: 32_000,
+      shippingChargedCop: 15_000,
+      totalCop: 127_000,
+      incomplete: false,
+    })
     expect(impliedMarkup(line.costCop, line.priceCop)).toBe(0.4)
+    expect(orderTotals([{ ...caseA, markupPct: null, unitPriceCop: 63_500 }], 50_000)).toMatchObject({
+      itemsPriceCop: 112_000,
+      shippingChargedCop: 15_000,
+      totalCop: 127_000,
+      balanceCop: 77_000,
+    })
+  })
+
+  it('el envío no se suma encima: 59.000 c/u con 30.000 de envío cobran 59.000', () => {
+    const line = lineTotals({
+      unitCostUsd: 5.99,
+      trm: 3170,
+      qty: 1,
+      markupPct: null,
+      unitPriceCop: 59_000,
+      shippingChargedCop: 30_000,
+    })
+    // El producto vale 59.000 − 30.000; la ganancia del envío se ve por caja.
+    expect(line).toMatchObject({ costCop: 18_988, priceCop: 29_000, profitCop: 10_012, totalCop: 59_000 })
   })
 
   it('el precio escrito manda sobre el % y no se redondea a la centena', () => {
     expect(lineTotals({ ...caseB, unitPriceCop: 46_150 }).priceCop).toBe(46_150)
   })
 
-  it('producto sin costo con precio: todo es ganancia y no hay incremento', () => {
+  it('producto sin costo con precio: lo que no es envío es ganancia y no hay incremento', () => {
     const line = lineTotals({ ...caseC, unitPriceCop: 20_000 })
-    expect(line).toMatchObject({ costCop: 0, priceCop: 20_000, profitCop: 20_000, totalCop: 32_000, incomplete: false })
+    expect(line).toMatchObject({ costCop: 0, priceCop: 8_000, profitCop: 8_000, totalCop: 20_000, incomplete: false })
     expect(impliedMarkup(line.costCop, line.priceCop)).toBeNull()
+  })
+
+  it('si el envío es mayor que lo que se cobra, el producto queda en pérdida', () => {
+    const line = lineTotals({ ...caseA, markupPct: null, unitPriceCop: 30_000, shippingChargedCop: 70_000 })
+    expect(line).toMatchObject({ priceCop: -10_000, profitCop: -90_000, totalCop: 60_000 })
   })
 
   it('el incremento se redondea a 4 decimales, como en la base', () => {

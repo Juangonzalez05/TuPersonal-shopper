@@ -108,7 +108,10 @@ export function orderToFormValues(order: OrderDetail): OrderFormValues {
     orderedOn: order.orderedOn,
     notes: order.notes ?? '',
     lines: order.items.map((item) => {
-      const unitPrice = item.unitPriceCop ?? (item.priceCop > 0 ? Math.round(item.priceCop / item.qty) : null)
+      // Una línea vieja con % pasa a precio c/u con el envío incluido, para que su total no cambie.
+      const unitPrice =
+        item.unitPriceCop ??
+        (item.priceCop > 0 ? Math.round((item.priceCop + item.shippingChargedCop) / item.qty) : null)
       return {
         id: item.id,
         productId: item.productId,

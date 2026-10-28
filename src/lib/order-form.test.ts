@@ -13,7 +13,8 @@ import {
 } from './order-form'
 import { impliedMarkup, lineTotals } from './pricing'
 
-// Caso A del roadmap escrito como lo haría ella en el celular: precio c/u al cliente 56.000.
+// Caso A del roadmap escrito como lo haría ella en el celular: precio c/u al cliente 63.500,
+// que ya trae los 15.000 de envío (2 × 63.500 = 127.000).
 const caseA: OrderFormValues = {
   ...emptyOrder('2026-10-22'),
   customerName: ' María Pérez ',
@@ -27,7 +28,7 @@ const caseA: OrderFormValues = {
       usd: '10',
       qty: '2',
       trm: '4.000',
-      price: '56.000',
+      price: '63.500',
       shipping: '15.000',
     },
   ],
@@ -98,7 +99,7 @@ describe('toCreateOrderArgs', () => {
           unit_cost_usd: 10,
           trm: 4000,
           markup_pct: null,
-          unit_price_cop: 56_000,
+          unit_price_cop: 63_500,
           shipping_charged_cop: 15_000,
           from_stock: false,
         },
@@ -163,9 +164,10 @@ describe('editar pedido', () => {
     ],
   }
 
-  it('una línea vieja con % toma el precio c/u calculado y conserva su id', () => {
+  it('una línea vieja con % toma el precio c/u con el envío incluido (mismo total) y conserva su id', () => {
     const values = orderToFormValues(saved)
-    expect(values.lines[0]).toMatchObject({ id: 'l-1', price: '56000', usd: '10', trm: '4000', shipping: '15000' })
+    // (112.000 + 15.000) / 2
+    expect(values.lines[0]).toMatchObject({ id: 'l-1', price: '63500', usd: '10', trm: '4000', shipping: '15000' })
     expect(values.status).toBe('confirmado')
   })
 
@@ -174,7 +176,7 @@ describe('editar pedido', () => {
     const args = toUpdateOrderArgs('o-1', { ...values, lines: [...values.lines, { ...emptyLine(), description: 'Nueva' }] })
     expect(args.p_order_id).toBe('o-1')
     expect(args.p_customer_id).toBe('c-1')
-    expect(args.p_items).toMatchObject([{ id: 'l-1', unit_price_cop: 56_000 }, { description: 'Nueva' }])
+    expect(args.p_items).toMatchObject([{ id: 'l-1', unit_price_cop: 63_500 }, { description: 'Nueva' }])
     expect((args.p_items as { id?: string }[])[1].id).toBeUndefined()
   })
 })
