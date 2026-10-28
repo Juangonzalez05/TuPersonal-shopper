@@ -4,18 +4,21 @@ import { useOrders } from '@/api/orders'
 import { useShipments, useUnboxedItems } from '@/api/shipments'
 import { useStock } from '@/api/stock'
 import { ExportButtons } from '@/components/summary/ExportButtons'
-import { BoxesCard, ShippingProfitCard } from '@/components/summary/ShippingSummary'
-import { SummaryCard, SummaryRow } from '@/components/summary/SummaryCard'
+import { BoxesRows, ProfitHero, ShippingDetailRows } from '@/components/summary/ShippingSummary'
+import { SummaryGroup, SummaryRow, SummarySection } from '@/components/summary/SummaryCard'
 import { Button } from '@/components/ui/button'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { buildCashFlow } from '@/lib/cash-flow'
 import { errorMessage } from '@/lib/errors'
-import { formatMonth, todayBogota } from '@/lib/format'
+import { formatCop, formatMonth, formatSignedCop, todayBogota } from '@/lib/format'
 import { buildSummary, monthOptions } from '@/lib/summary'
 
 const ALL_MONTHS = 'todos'
 
-/** La hoja "Resumen" del Excel, por mes. */
+/**
+ * Resumen del mes: arriba lo que más importa (la ganancia en productos y en envíos) y debajo
+ * el resto en secciones plegables, cada una con su dato clave a la vista.
+ */
 export function ResumenPage() {
   const orders = useOrders()
   const shipments = useShipments()
@@ -72,28 +75,39 @@ export function ResumenPage() {
         <NativeSelectOption value={ALL_MONTHS}>Todos los meses</NativeSelectOption>
       </NativeSelect>
 
-      <SummaryCard title="Lo que cobro">
+      <ProfitHero summary={s} month={month} />
+
+      <SummarySection title="Ganancia de envíos" preview={formatSignedCop(s.profit.shippingCop)}>
+        <ShippingDetailRows shipping={s.shipping} />
+      </SummarySection>
+
+      <SummarySection title="Ventas y cobros" preview={`Por cobrar ${formatCop(s.billing.balanceCop)}`}>
         <SummaryRow label="Productos (sin el envío)" value={s.billing.productsCop} />
-        <SummaryRow label="Envío cobrado (incluido en los precios)" value={s.billing.shippingCop} />
-        <SummaryRow label="Total facturado" value={s.billing.totalCop} strong />
+        <SummaryRow label="Envío (incluido en los precios)" value={s.billing.shippingCop} />
+        <SummaryRow label="Total vendido" value={s.billing.totalCop} strong />
         <SummaryRow label="Abonos y pagos recibidos" value={s.billing.paidCop} />
         <SummaryRow label="Saldo por cobrar" value={s.billing.balanceCop} strong to="/pedidos" />
-      </SummaryCard>
+        <SummaryGroup>Pedidos</SummaryGroup>
+        <SummaryRow label="Pendientes (sin abono)" value={s.sales.pendiente} kind="count" to="/pedidos?pago=pendiente" />
+        <SummaryRow label="Separados (con abono)" value={s.sales.separado} kind="count" to="/pedidos?pago=separado" />
+        <SummaryRow label="Pagados" value={s.sales.pagado} kind="count" to="/pedidos?pago=pagado" />
+        <SummaryRow label="Con datos por completar" value={s.sales.incomplete} kind="count" />
+        <SummaryRow label="Cotizaciones (no cuentan)" value={s.sales.quotes} kind="count" to="/pedidos?entrega=cotizado" />
+      </SummarySection>
 
-      <SummaryCard title="Lo que me cuesta">
+      <SummarySection title="Lo que me cuesta" preview={formatCop(s.costs.productsCop + s.costs.shippingCostCop)}>
         <SummaryRow label="Productos (USD × TRM)" value={s.costs.productsCop} />
         <SummaryRow label="Envío pagado en cajas" value={s.costs.shippingCostCop} />
-      </SummaryCard>
+      </SummarySection>
 
-      <SummaryCard title="Mi ganancia">
-        <SummaryRow label="Ganancia de los productos" value={s.profit.productsCop} signed />
-        <SummaryRow label="Ganancia de los envíos" value={s.profit.shippingCop} signed />
-        <SummaryRow label="Ganancia total" value={s.profit.totalCop} strong signed />
-      </SummaryCard>
+      <SummarySection
+        title="Cajas"
+        preview={s.shipments.boxes.length === 1 ? '1 caja' : `${s.shipments.boxes.length} cajas`}
+      >
+        <BoxesRows shipments={s.shipments} month={month} />
+      </SummarySection>
 
-      <ShippingProfitCard shipping={s.shipping} />
-
-      <SummaryCard title="Flujo de caja" note="por fecha del movimiento">
+      <SummarySection title="Flujo de caja" preview={formatCop(flow.balanceCop)}>
         <SummaryRow label="Entró (abonos y plata que metí)" value={flow.inCop} />
         <SummaryRow label="Salió" value={flow.outCop} />
         <SummaryRow label="Reinvertido (compras)" value={flow.bySource.reinversion} />
@@ -105,52 +119,24 @@ export function ResumenPage() {
           signed
           to={dineroLink}
         />
-      </SummaryCard>
+      </SummarySection>
 
-      <SummaryCard title="Estado de las ventas" note="pedidos">
-        <SummaryRow label="Pendientes (sin abono)" value={s.sales.pendiente} kind="count" to="/pedidos?pago=pendiente" />
-        <SummaryRow
-          label="Separados (con abono, deben saldo)"
-          value={s.sales.separado}
-          kind="count"
-          to="/pedidos?pago=separado"
-        />
-        <SummaryRow label="Pagados (completos)" value={s.sales.pagado} kind="count" to="/pedidos?pago=pagado" />
-        <SummaryRow label="Con datos por completar (TRM o %)" value={s.sales.incomplete} kind="count" />
-        <SummaryRow
-          label="Cotizaciones (no cuentan en los totales)"
-          value={s.sales.quotes}
-          kind="count"
-          to="/pedidos?entrega=cotizado"
-        />
-      </SummaryCard>
-
-      <BoxesCard shipments={s.shipments} month={month} />
-
-      <SummaryCard title="Inventario" note="hoy">
+      <SummarySection title="Inventario" preview={`${s.stock.availableUnits} disponibles`}>
         <SummaryRow label="Productos registrados" value={s.stock.products} kind="count" to="/inventario" />
         <SummaryRow label="Unidades disponibles" value={s.stock.availableUnits} kind="count" />
+        <SummaryRow label="Unidades en camino" value={s.stock.inTransitUnits} kind="count" to="/inventario?estado=en_camino" />
+        <SummaryRow label="Productos agotados" value={s.stock.soldOut} kind="count" to="/inventario?estado=agotado" />
         <SummaryRow
-          label="Unidades en camino"
-          value={s.stock.inTransitUnits}
-          kind="count"
-          to="/inventario?estado=en_camino"
-        />
-        <SummaryRow
-          label="Productos agotados"
-          value={s.stock.soldOut}
-          kind="count"
-          to="/inventario?estado=agotado"
-        />
-        <SummaryRow
-          label="Productos por revisar (vendido > ingresado)"
+          label="Por revisar (vendido > ingresado)"
           value={s.stock.toReview}
           kind="count"
           to="/inventario?estado=revisar"
         />
-      </SummaryCard>
+      </SummarySection>
 
-      <ExportButtons month={month} orders={orders.data} shipments={shipments.data} cash={cash.data} />
+      <SummarySection title="Exportar (respaldo)" rows={false}>
+        <ExportButtons month={month} orders={orders.data} shipments={shipments.data} cash={cash.data} />
+      </SummarySection>
     </div>
   )
 }
