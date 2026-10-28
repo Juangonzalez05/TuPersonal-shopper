@@ -54,8 +54,7 @@ export function ExportButtons({ month, orders, shipments, cash }: ExportButtonsP
   }
 
   return (
-    <section className="grid gap-2 rounded-lg border p-3">
-      <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Exportar (respaldo)</h2>
+    <div className="grid gap-2">
       <p className="text-sm text-muted-foreground">
         {month ? `CSV de ${formatMonth(month)}.` : 'CSV con todos los meses: el respaldo completo.'} Se abre en Excel.
       </p>
@@ -77,6 +76,6 @@ export function ExportButtons({ month, orders, shipments, cash }: ExportButtonsP
           Flujo de caja
         </Button>
       </div>
-    </section>
+    </div>
   )
 }

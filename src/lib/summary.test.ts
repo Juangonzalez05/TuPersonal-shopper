@@ -20,6 +20,7 @@ const order = (o: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'orderedOn' 
   paymentStatus: 'pendiente',
   incompleteItems: 0,
   stockShippingCop: 0,
+  stockShippingUnits: 0,
   ...o,
 })
 
@@ -74,7 +75,7 @@ const data = {
     order({ id: 'cotizacion', orderedOn: '2026-10-12', status: 'cotizado', itemsPriceCop: 99_900, totalCop: 99_900, itemsCostCop: 70_000, itemsProfitCop: 29_900, balanceCop: 99_900 }),
     order({ id: 'anulado', orderedOn: '2026-10-15', status: 'anulado', itemsPriceCop: 50_000, totalCop: 50_000, itemsCostCop: 40_000, itemsProfitCop: 10_000, balanceCop: 50_000 }),
     // Su envío de 5.000 es de una venta del inventario: no se compara con cajas.
-    order({ id: 'sept', orderedOn: '2026-09-20', status: 'comprado', itemsPriceCop: 20_000, shippingChargedCop: 5_000, totalCop: 25_000, itemsCostCop: 15_000, itemsProfitCop: 5_000, balanceCop: 25_000, incompleteItems: 1, stockShippingCop: 5_000 }),
+    order({ id: 'sept', orderedOn: '2026-09-20', status: 'comprado', itemsPriceCop: 20_000, shippingChargedCop: 5_000, totalCop: 25_000, itemsCostCop: 15_000, itemsProfitCop: 5_000, balanceCop: 25_000, incompleteItems: 1, stockShippingCop: 5_000, stockShippingUnits: 1 }),
   ],
   shipments: [
     // 10.000 entre 4 productos = 2.500 c/u; 2 son de pedidos (cobrado 15.000, real 5.000) y 2 de inventario.
@@ -110,11 +111,16 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
     expect(summary.profit).toEqual({ productsCop: 45_154, shippingCop: 10_000, totalCop: 55_154 })
     expect(summary.sales).toEqual({ pendiente: 0, separado: 1, pagado: 1, incomplete: 0, quotes: 1 })
     expect(summary.shipping).toEqual({
-      chargedCop: 15_000,
-      realCop: 5_000,
-      profitCop: 10_000,
+      boxesChargedCop: 15_000,
+      boxesRealCop: 5_000,
+      boxesProfitCop: 10_000,
+      stockChargedCop: 0,
+      stockUnits: 0,
+      // (10.000 + 8.000) / (4 + 1) productos de todas las cajas comparables
+      avgCostPerUnitCop: 3_600,
+      stockEstimatedCop: 0,
+      stockProfitCop: 0,
       inventoryShareCop: 5_000,
-      stockSalesCop: 0,
       unboxedCop: 12_000,
       // ENV-002 aún no tiene costo.
       uncomparedBoxesCop: 4_000,
@@ -133,18 +139,29 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
       balanceCop: 98_100,
     })
     expect(summary.costs).toEqual({ productsCop: 127_946, shippingCostCop: 38_000 })
-    expect(summary.profit).toEqual({ productsCop: 50_154, shippingCop: 7_000, totalCop: 57_154 })
+    // Envíos: 7.000 de las cajas + 1.400 estimados del inventario (5.000 − 3.600).
+    expect(summary.profit).toEqual({ productsCop: 50_154, shippingCop: 8_400, totalCop: 58_554 })
     expect(summary.sales).toEqual({ pendiente: 1, separado: 1, pagado: 1, incomplete: 1, quotes: 1 })
     expect(summary.shipping).toEqual({
-      chargedCop: 20_000,
-      realCop: 13_000,
-      profitCop: 7_000,
+      boxesChargedCop: 20_000,
+      boxesRealCop: 13_000,
+      boxesProfitCop: 7_000,
+      stockChargedCop: 5_000,
+      stockUnits: 1,
+      avgCostPerUnitCop: 3_600,
+      stockEstimatedCop: 3_600,
+      stockProfitCop: 1_400,
       inventoryShareCop: 5_000,
-      stockSalesCop: 5_000,
       unboxedCop: 17_000,
       uncomparedBoxesCop: 4_000,
     })
     expect(summary.shipments).toMatchObject({ arrived: 2, inTransit: 2, withoutCost: 1, withoutProducts: 1 })
+  })
+
+  it('sin cajas comparables no hay estimado del inventario y no suma a la ganancia', () => {
+    const summary = buildSummary({ ...data, shipments: [] }, null)
+    expect(summary.shipping).toMatchObject({ stockChargedCop: 5_000, avgCostPerUnitCop: null, stockEstimatedCop: null, stockProfitCop: 0 })
+    expect(summary.profit.shippingCop).toBe(0)
   })
 
   it('una caja con costo y sin productos no se compara ni cuenta como pérdida', () => {
@@ -170,7 +187,7 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
     const summary = buildSummary(data, '2020-01')
     expect(summary.billing.totalCop).toBe(0)
     expect(summary.profit.totalCop).toBe(0)
-    expect(summary.shipping.profitCop).toBe(0)
+    expect(summary.profit.shippingCop).toBe(0)
     expect(summary.shipments).toEqual({ boxes: [], arrived: 0, inTransit: 0, withoutCost: 0, withoutProducts: 0 })
   })
 })

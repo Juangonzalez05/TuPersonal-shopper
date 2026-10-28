@@ -21,6 +21,8 @@ const isoDateFormat = new Intl.DateTimeFormat('en-CA', {
 })
 
 export const formatCop = (value: number) => copFormat.format(value)
+/** Con signo para ganancias: 29100 → "+$ 29.100", -3000 → "−$ 3.000". */
+export const formatSignedCop = (value: number) => `${value < 0 ? '−' : '+'}${copFormat.format(Math.abs(value))}`
 export const formatUsd = (value: number) => usdFormat.format(value)
 export const formatTrm = (value: number) => trmFormat.format(value)
 /** Fracción a texto: 0.4 → "40 %". */

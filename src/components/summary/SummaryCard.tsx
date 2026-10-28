@@ -1,8 +1,46 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { formatCop } from '@/lib/format'
 import { cn } from '@/lib/utils'
+
+/**
+ * Sección plegable del Resumen: cerrada por defecto, con el dato clave en el título.
+ * Con rows, el contenido son renglones (SummaryRow); si no, cualquier contenido.
+ */
+export function SummarySection({
+  title,
+  preview,
+  rows = true,
+  children,
+}: {
+  title: string
+  preview?: ReactNode
+  rows?: boolean
+  children: ReactNode
+}) {
+  return (
+    <details className="group rounded-lg border">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 [&::-webkit-details-marker]:hidden">
+        <span className="font-medium">{title}</span>
+        <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground tabular-nums">
+          {preview}
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      {rows ? (
+        <dl className="grid gap-1.5 border-t p-3 text-sm">{children}</dl>
+      ) : (
+        <div className="border-t p-3">{children}</div>
+      )}
+    </details>
+  )
+}
+
+/** Subtítulo dentro de una sección del Resumen. */
+export function SummaryGroup({ children }: { children: ReactNode }) {
+  return <div className="pt-2 text-xs font-medium text-muted-foreground first:pt-0">{children}</div>
+}
 
 /** Un bloque de la hoja Resumen: título en mayúsculas y renglones. */
 export function SummaryCard({ title, note, children }: { title: string; note?: string; children: ReactNode }) {

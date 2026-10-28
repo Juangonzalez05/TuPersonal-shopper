@@ -141,6 +141,7 @@ describe('editar pedido', () => {
     paymentStatus: 'pendiente',
     incompleteItems: 0,
     stockShippingCop: 0,
+    stockShippingUnits: 0,
     payments: [],
     items: [
       {

@@ -7,9 +7,9 @@
 //  - Los estados se cuentan por pedido (el Excel contaba filas de producto) y "Canceladas"
 //    se llama "Pagados".
 //  - La ganancia de envíos es por producto: el costo de cada caja se divide entre los productos
-//    que trae (v_shipments) y solo se compara el envío cobrado a los pedidos que van en ella.
-//    El inventario no se compara por ahora: su parte de las cajas y el envío cobrado al
-//    venderlo se muestran aparte.
+//    que trae (v_shipments) y se compara con el envío cobrado a los pedidos que van en ella.
+//  - Las ventas del inventario no llegaron en una caja registrada: su envío real se estima con
+//    el costo por producto promedio de las cajas (solo las que tienen envío cobrado).
 
 import type { CashEntry } from '@/api/cash'
 import type { OrderSummary } from '@/api/orders'
@@ -37,14 +37,21 @@ export type Summary = {
   sales: { pendiente: number; separado: number; pagado: number; incomplete: number; quotes: number }
   /** GANANCIA DE ENVÍOS */
   shipping: {
-    /** Encargos en cajas del mes que ya se pueden comparar (con costo y productos). */
-    chargedCop: number
-    realCop: number
-    profitCop: number
-    /** Parte de esas cajas que no es de pedidos (inventario / otros): costo, no se compara. */
+    /** Pedidos en cajas del mes que ya se pueden comparar (con costo y productos). */
+    boxesChargedCop: number
+    boxesRealCop: number
+    boxesProfitCop: number
+    /** Ventas del inventario con envío cobrado (mes del pedido), contra el promedio de las cajas. */
+    stockChargedCop: number
+    stockUnits: number
+    /** Costo por producto promedio de todas las cajas comparables; null si aún no hay. */
+    avgCostPerUnitCop: number | null
+    /** promedio × unidades; null si aún no hay promedio. */
+    stockEstimatedCop: number | null
+    /** Ganancia estimada: cobrado − estimado (0 sin promedio). */
+    stockProfitCop: number
+    /** Parte de las cajas que no es de pedidos (inventario / otros): costo, no se compara. */
     inventoryShareCop: number
-    /** Envío cobrado en ventas del inventario (mes del pedido): no se compara por ahora. */
-    stockSalesCop: number
     /** Envío cobrado de pedidos que aún no tienen caja (mes del pedido). */
     unboxedCop: number
     /** Envío cobrado en cajas del mes sin costo o sin productos. */
@@ -78,7 +85,18 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
   const productsCop = sum(orders, (o) => o.itemsPriceCop)
   const shippingCop = sum(orders, (o) => o.shippingChargedCop)
   const productsProfit = sum(orders, (o) => o.itemsProfitCop)
-  const shippingProfit = sum(compared, (s) => s.differenceCop ?? 0)
+  const boxesProfit = sum(compared, (s) => s.differenceCop ?? 0)
+
+  // Promedio de todas las cajas (no solo las del mes): el inventario puede venir de cualquiera.
+  const allCompared = data.shipments.filter((s) => s.differenceCop !== null && s.unitsTotal > 0)
+  const allUnits = sum(allCompared, (s) => s.unitsTotal)
+  const avgCostPerUnitCop =
+    allUnits > 0 ? Math.round(sum(allCompared, (s) => s.realCostCop ?? 0) / allUnits) : null
+  const stockChargedCop = sum(orders, (o) => o.stockShippingCop)
+  const stockUnits = sum(orders, (o) => o.stockShippingUnits)
+  const stockEstimatedCop = avgCostPerUnitCop === null ? null : avgCostPerUnitCop * stockUnits
+  const stockProfit = stockEstimatedCop === null ? 0 : stockChargedCop - stockEstimatedCop
+  const shippingProfit = boxesProfit + stockProfit
 
   return {
     billing: {
@@ -105,11 +123,15 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
       quotes: monthOrders.filter((o) => o.status === 'cotizado').length,
     },
     shipping: {
-      chargedCop: sum(compared, (s) => s.chargedCop),
-      realCop: sum(compared, (s) => s.clientsRealCop ?? 0),
-      profitCop: shippingProfit,
+      boxesChargedCop: sum(compared, (s) => s.chargedCop),
+      boxesRealCop: sum(compared, (s) => s.clientsRealCop ?? 0),
+      boxesProfitCop: boxesProfit,
+      stockChargedCop,
+      stockUnits,
+      avgCostPerUnitCop,
+      stockEstimatedCop,
+      stockProfitCop: stockProfit,
       inventoryShareCop: sum(compared, (s) => s.otherRealCop ?? 0),
-      stockSalesCop: sum(orders, (o) => o.stockShippingCop),
       unboxedCop: sum(
         data.unboxed.filter((item) => inMonth(item.orderedOn)),
         (item) => item.shippingChargedCop,
