@@ -1,7 +1,8 @@
 // Cajas de envío: estado, códigos y textos. Los números (productos, cobrado, diferencia)
 // salen de la vista v_shipments, igual que en la hoja "Control de envíos".
 
-// Ganancia de envío de una caja = lo cobrado de envío a los clientes de sus productos − costo del envío.
+// Ganancia de envíos: el costo de la caja se divide entre los productos que trae y cada
+// producto de un pedido compara su envío cobrado (el estimado que va en el precio) con su parte.
 
 import { formatDate, parseCop, parseDecimal } from './format'
 
@@ -55,6 +56,8 @@ export type ShipmentFormText = {
   shippedOn: string
   expectedOn: string
   realCost: string
+  /** Cuántos productos trae; '' = las unidades registradas. */
+  productsCount: string
   notes: string
 }
 
@@ -66,8 +69,24 @@ export function shipmentFields(values: ShipmentFormText) {
     shippedOn: values.shippedOn || null,
     expectedOn: values.expectedOn || null,
     realCostCop: parseCop(values.realCost),
+    productsCount: positiveInteger(values.productsCount),
     notes: values.notes.trim() || null,
   }
+}
+
+/** "20" → 20; vacío, cero o con decimales → null. */
+export function positiveInteger(text: string): number | null {
+  const n = parseDecimal(text)
+  return n !== null && Number.isInteger(n) && n >= 1 ? n : null
+}
+
+/**
+ * Lo que le tocó de la caja a una línea de pedido: costo del envío × cantidad ÷ productos
+ * en la caja (redondeado al peso, como la vista). null sin costo o sin productos.
+ */
+export function lineShippingReal(shipment: { realCostCop: number | null; unitsTotal: number }, qty: number): number | null {
+  if (shipment.realCostCop === null || shipment.unitsTotal <= 0) return null
+  return Math.round((shipment.realCostCop * qty) / shipment.unitsTotal)
 }
 
 /** Filas de "Productos para el inventario" de una caja nueva, listas para create_shipment (las vacías se ignoran). */

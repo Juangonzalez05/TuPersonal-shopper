@@ -9,9 +9,9 @@ import { NumberField } from '@/components/NumberField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { parseDecimal } from '@/lib/format'
+import { formatCop, parseCop, parseDecimal } from '@/lib/format'
 import { productKey } from '@/lib/product-name'
-import type { ShipmentFormText } from '@/lib/shipments'
+import { positiveInteger, type ShipmentFormText } from '@/lib/shipments'
 
 const isBlank = (value: string) => value.trim() === ''
 
@@ -38,6 +38,7 @@ const shipmentSchema = z.object({
   shippedOn: z.string(),
   expectedOn: z.string(),
   realCost: z.string().refine((value) => isBlank(value) || parseDecimal(value) !== null, 'Valor inválido.'),
+  productsCount: z.string().refine((value) => isBlank(value) || positiveInteger(value) !== null, 'Número entero desde 1.'),
   notes: z.string(),
   stock: z.array(stockRowSchema),
 })
@@ -52,6 +53,8 @@ type ShipmentFormProps = {
   carriers: string[]
   /** Al crear se pueden anotar los productos de inventario que trae; al editar no. */
   withStock: boolean
+  /** Unidades ya registradas en la caja (pedidos + inventario), al editar. */
+  registeredUnits?: number
   submitLabel: string
   pending: boolean
   onSubmit: (values: ShipmentFormValues) => void
@@ -63,6 +66,7 @@ export function ShipmentForm({
   defaultValues,
   carriers,
   withStock,
+  registeredUnits = 0,
   submitLabel,
   pending,
   onSubmit,
@@ -82,7 +86,18 @@ export function ShipmentForm({
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'stock' })
   const stock = useWatch({ control, name: 'stock' })
+  const realCost = parseCop(useWatch({ control, name: 'realCost' }))
+  const typedUnits = positiveInteger(useWatch({ control, name: 'productsCount' }))
   const catalog = products.data ?? []
+  // Lo registrado: lo que ya tiene la caja más los productos de inventario que se están anotando.
+  const registered =
+    registeredUnits +
+    stock.reduce((total, row) => {
+      const qty = parseDecimal(row.qty)
+      return row.productName.trim() !== '' && qty !== null && Number.isInteger(qty) && qty > 0 ? total + qty : total
+    }, 0)
+  // Como la vista: nunca menos que lo registrado.
+  const units = Math.max(typedUnits ?? 0, registered)
 
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-3 rounded-lg border p-3">
@@ -106,6 +121,21 @@ export function ShipmentForm({
         />
       </div>
       {errors.code && <p className="-mt-1 text-xs text-destructive">{errors.code.message}</p>}
+      <div className="grid gap-1.5">
+        <NumberField
+          label="Productos en la caja"
+          inputMode="numeric"
+          placeholder={registered > 0 ? `${registered} registrados` : 'Cuántos trae'}
+          error={errors.productsCount?.message}
+          {...register('productsCount')}
+        />
+        <p className="text-xs text-muted-foreground">
+          {realCost !== null && realCost > 0 && units > 0
+            ? `${formatCop(realCost)} ÷ ${units} = ${formatCop(Math.round(realCost / units))} de envío por producto.`
+            : 'Para dividir el costo del envío entre los productos que trae.'}
+          {typedUnits !== null && typedUnits < registered && ` Hay ${registered} registrados: se usa ese número.`}
+        </p>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="grid gap-1.5">
           <Label htmlFor={`${id}-shipped`}>Despacho</Label>

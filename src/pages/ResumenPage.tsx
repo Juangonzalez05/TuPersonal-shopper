@@ -4,6 +4,7 @@ import { useOrders } from '@/api/orders'
 import { useShipments, useUnboxedItems } from '@/api/shipments'
 import { useStock } from '@/api/stock'
 import { ExportButtons } from '@/components/summary/ExportButtons'
+import { BoxesCard, ShippingProfitCard } from '@/components/summary/ShippingSummary'
 import { SummaryCard, SummaryRow } from '@/components/summary/SummaryCard'
 import { Button } from '@/components/ui/button'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
@@ -81,14 +82,16 @@ export function ResumenPage() {
 
       <SummaryCard title="Lo que me cuesta">
         <SummaryRow label="Productos (USD × TRM)" value={s.costs.productsCop} />
-        <SummaryRow label="Envío de las cajas (las que ya tienen costo)" value={s.costs.shippingCostCop} />
+        <SummaryRow label="Envío pagado en cajas" value={s.costs.shippingCostCop} />
       </SummaryCard>
 
       <SummaryCard title="Mi ganancia">
         <SummaryRow label="Ganancia de los productos" value={s.profit.productsCop} signed />
-        <SummaryRow label="Ganancia de los envíos (cajas con costo)" value={s.profit.shippingCop} signed />
+        <SummaryRow label="Ganancia de los envíos" value={s.profit.shippingCop} signed />
         <SummaryRow label="Ganancia total" value={s.profit.totalCop} strong signed />
       </SummaryCard>
+
+      <ShippingProfitCard shipping={s.shipping} />
 
       <SummaryCard title="Flujo de caja" note="por fecha del movimiento">
         <SummaryRow label="Entró (abonos y plata que metí)" value={flow.inCop} />
@@ -122,16 +125,7 @@ export function ResumenPage() {
         />
       </SummaryCard>
 
-      <SummaryCard title="Cajas de envío">
-        <SummaryRow label="Cajas que llegaron" value={s.shipments.arrived} kind="count" to="/cajas" />
-        <SummaryRow label="Cajas en camino" value={s.shipments.inTransit} kind="count" to="/cajas" />
-        <SummaryRow label="Cajas sin costo de envío" value={s.shipments.withoutCost} kind="count" to="/cajas" />
-        <SummaryRow
-          label="Envío cobrado que aún no tiene caja"
-          value={s.shipments.unboxedShippingCop}
-          to="/cajas"
-        />
-      </SummaryCard>
+      <BoxesCard shipments={s.shipments} month={month} />
 
       <SummaryCard title="Inventario" note="hoy">
         <SummaryRow label="Productos registrados" value={s.stock.products} kind="count" to="/inventario" />

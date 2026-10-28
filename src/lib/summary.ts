@@ -6,6 +6,10 @@
 //    anulado no existe. Las cotizaciones se cuentan aparte.
 //  - Los estados se cuentan por pedido (el Excel contaba filas de producto) y "Canceladas"
 //    se llama "Pagados".
+//  - La ganancia de envíos es por producto: el costo de cada caja se divide entre los productos
+//    que trae (v_shipments) y solo se compara el envío cobrado a los pedidos que van en ella.
+//    El inventario no se compara por ahora: su parte de las cajas y el envío cobrado al
+//    venderlo se muestran aparte.
 
 import type { CashEntry } from '@/api/cash'
 import type { OrderSummary } from '@/api/orders'
@@ -31,8 +35,23 @@ export type Summary = {
   profit: { productsCop: number; shippingCop: number; totalCop: number }
   /** ESTADO DE LAS VENTAS */
   sales: { pendiente: number; separado: number; pagado: number; incomplete: number; quotes: number }
-  /** CAJAS DE ENVÍO */
-  shipments: { arrived: number; inTransit: number; withoutCost: number; unboxedShippingCop: number }
+  /** GANANCIA DE ENVÍOS */
+  shipping: {
+    /** Encargos en cajas del mes que ya se pueden comparar (con costo y productos). */
+    chargedCop: number
+    realCop: number
+    profitCop: number
+    /** Parte de esas cajas que no es de pedidos (inventario / otros): costo, no se compara. */
+    inventoryShareCop: number
+    /** Envío cobrado en ventas del inventario (mes del pedido): no se compara por ahora. */
+    stockSalesCop: number
+    /** Envío cobrado de pedidos que aún no tienen caja (mes del pedido). */
+    unboxedCop: number
+    /** Envío cobrado en cajas del mes sin costo o sin productos. */
+    uncomparedBoxesCop: number
+  }
+  /** CAJAS DEL MES */
+  shipments: { boxes: Shipment[]; arrived: number; inTransit: number; withoutCost: number; withoutProducts: number }
   /** INVENTARIO (foto de hoy) */
   stock: { products: number; availableUnits: number; inTransitUnits: number; soldOut: number; toReview: number }
 }
@@ -52,13 +71,14 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
   const monthOrders = data.orders.filter((o) => inMonth(o.orderedOn))
   const orders = monthOrders.filter((o) => o.status !== 'cotizado' && o.status !== 'anulado')
   const shipments = data.shipments.filter((s) => month === null || shipmentMonth(s) === month)
-  // La ganancia de envío se puede calcular apenas la caja tiene costo, llegue o no.
   const withCost = shipments.filter((s) => s.realCostCop !== null)
+  // La comparativa sale apenas la caja tiene costo y productos, llegue o no.
+  const compared = shipments.filter((s) => s.differenceCop !== null)
 
   const productsCop = sum(orders, (o) => o.itemsPriceCop)
   const shippingCop = sum(orders, (o) => o.shippingChargedCop)
   const productsProfit = sum(orders, (o) => o.itemsProfitCop)
-  const shippingProfit = sum(withCost, (s) => s.differenceCop ?? 0)
+  const shippingProfit = sum(compared, (s) => s.differenceCop ?? 0)
 
   return {
     billing: {
@@ -84,14 +104,27 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
       incomplete: orders.filter((o) => o.incompleteItems > 0).length,
       quotes: monthOrders.filter((o) => o.status === 'cotizado').length,
     },
-    shipments: {
-      arrived: shipments.filter((s) => s.state === 'llego').length,
-      inTransit: shipments.filter((s) => s.state === 'en_camino').length,
-      withoutCost: shipments.length - withCost.length,
-      unboxedShippingCop: sum(
+    shipping: {
+      chargedCop: sum(compared, (s) => s.chargedCop),
+      realCop: sum(compared, (s) => s.clientsRealCop ?? 0),
+      profitCop: shippingProfit,
+      inventoryShareCop: sum(compared, (s) => s.otherRealCop ?? 0),
+      stockSalesCop: sum(orders, (o) => o.stockShippingCop),
+      unboxedCop: sum(
         data.unboxed.filter((item) => inMonth(item.orderedOn)),
         (item) => item.shippingChargedCop,
       ),
+      uncomparedBoxesCop: sum(
+        shipments.filter((s) => s.differenceCop === null),
+        (s) => s.chargedCop,
+      ),
+    },
+    shipments: {
+      boxes: shipments,
+      arrived: shipments.filter((s) => s.state === 'llego').length,
+      inTransit: shipments.filter((s) => s.state === 'en_camino').length,
+      withoutCost: shipments.length - withCost.length,
+      withoutProducts: withCost.filter((s) => s.unitsTotal === 0).length,
     },
     stock: {
       products: data.stock.length,

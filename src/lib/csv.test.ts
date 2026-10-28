@@ -57,6 +57,7 @@ describe('exportaciones', () => {
       balanceCop: 77_000,
       paymentStatus: 'separado',
       incompleteItems: 0,
+      stockShippingCop: 0,
     }
     expect(lines(ordersCsv([order]))[1]).toBe(
       '05/10/2026;María;3001234567;Comprado;Separado;112000;15000;127000;80000;32000;50000;77000;0;',
@@ -104,8 +105,14 @@ describe('exportaciones', () => {
       itemsCount: 3,
       chargedCop: 27_000,
       state: 'en_camino',
-      differenceCop: null,
       stockUnits: 4,
+      productsCount: null,
+      clientUnits: 3,
+      unitsTotal: 7,
+      costPerUnitCop: null,
+      clientsRealCop: null,
+      differenceCop: null,
+      otherRealCop: null,
       createdAt: '2026-10-20T15:00:00Z',
     }
     expect(lines(shipmentsCsv([shipment]))[1]).toBe('ENV-002;Aeropost;20/10/2026;31/10/2026;;En camino;3;4;27000;;;frágil')

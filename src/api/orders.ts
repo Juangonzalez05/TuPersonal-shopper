@@ -35,6 +35,8 @@ export type OrderSummary = {
   balanceCop: number
   paymentStatus: PaymentStatus
   incompleteItems: number
+  /** Envío cobrado en líneas que salen del inventario (no se compara con cajas por ahora). */
+  stockShippingCop: number
 }
 
 export type OrderItem = {
@@ -98,6 +100,7 @@ function toOrderSummary(row: OrderRow): OrderSummary {
     balanceCop: row.balance_cop ?? 0,
     paymentStatus: isPaymentStatus(row.payment_status) ? row.payment_status : 'pendiente',
     incompleteItems: row.incomplete_items ?? 0,
+    stockShippingCop: row.stock_shipping_cop ?? 0,
   }
 }
 

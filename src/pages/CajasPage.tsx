@@ -34,12 +34,17 @@ export function CajasPage() {
   const list = shipments.data
   const carriers = [...new Set(list.map((s) => s.carrier).filter((c): c is string => Boolean(c)))]
   const unboxedPurchased = (unboxed.data ?? []).filter((item) => isPurchasedStatus(item.orderStatus))
-  // Sin costo del envío no hay ganancia de envío que calcular.
+  // Sin costo del envío, o sin productos entre los que dividirlo, no hay ganancia de envíos.
   const openCount = list.filter((s) => s.realCostCop === null).length
+  const withoutProductsCount = list.filter((s) => s.realCostCop !== null && s.unitsTotal === 0).length
 
   return (
     <div className="grid gap-3">
-      <ShipmentAlerts unboxedPurchased={unboxedPurchased} openCount={openCount} />
+      <ShipmentAlerts
+        unboxedPurchased={unboxedPurchased}
+        openCount={openCount}
+        withoutProductsCount={withoutProductsCount}
+      />
 
       {creating ? (
         <ShipmentForm
@@ -49,6 +54,7 @@ export function CajasPage() {
             shippedOn: todayBogota(),
             expectedOn: '',
             realCost: '',
+            productsCount: '',
             notes: '',
           }}
           withStock

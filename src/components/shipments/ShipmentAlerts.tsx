@@ -3,9 +3,17 @@ import { Link } from 'react-router'
 import type { BoxItem } from '@/api/shipments'
 import { formatDate } from '@/lib/format'
 
-/** Avisos de la pantalla Cajas: productos comprados sin caja y cajas sin costo del envío. */
-export function ShipmentAlerts({ unboxedPurchased, openCount }: { unboxedPurchased: BoxItem[]; openCount: number }) {
-  if (unboxedPurchased.length === 0 && openCount === 0) return null
+type ShipmentAlertsProps = {
+  unboxedPurchased: BoxItem[]
+  /** Cajas sin costo del envío. */
+  openCount: number
+  /** Cajas con costo pero sin productos entre los que dividirlo. */
+  withoutProductsCount: number
+}
+
+/** Avisos de la pantalla Cajas: productos comprados sin caja, cajas sin costo y cajas sin productos. */
+export function ShipmentAlerts({ unboxedPurchased, openCount, withoutProductsCount }: ShipmentAlertsProps) {
+  if (unboxedPurchased.length === 0 && openCount === 0 && withoutProductsCount === 0) return null
 
   return (
     <div className="grid gap-2">
@@ -34,6 +42,15 @@ export function ShipmentAlerts({ unboxedPurchased, openCount }: { unboxedPurchas
           <AlertTriangle className="size-4 shrink-0" />
           {openCount === 1 ? '1 caja sin costo de envío' : `${openCount} cajas sin costo de envío`}
           <span className="font-normal">· escríbelo para ver la ganancia del envío.</span>
+        </p>
+      )}
+      {withoutProductsCount > 0 && (
+        <p className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 font-medium text-amber-950">
+          <AlertTriangle className="size-4 shrink-0" />
+          {withoutProductsCount === 1
+            ? '1 caja con costo pero sin productos'
+            : `${withoutProductsCount} cajas con costo pero sin productos`}
+          <span className="font-normal">· escribe cuántos trae para dividir el costo.</span>
         </p>
       )}
     </div>
