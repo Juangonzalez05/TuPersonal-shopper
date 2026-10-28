@@ -12,6 +12,7 @@ declare
   v_a        uuid;
   v_b        uuid;
   v_c        uuid;
+  v_d        uuid;
   v_got      text;
 begin
   select id into v_owner from auth.users order by created_at limit 1;
@@ -56,13 +57,19 @@ begin
       from public.v_orders where id = v_c;
     assert v_got = '12000/0/pagado', 'Caso C pedido: ' || v_got;
 
-    -- Caso A escrito con precio c/u (56.000) en vez de %: mismo precio y el 40 % sale solo.
+    -- Caso A escrito con precio c/u: los 63.500 c/u ya traen el envío de 15.000 (127.000 en
+    -- total), así que el producto vale 112.000 y el 40 % sale solo.
+    insert into public.orders (owner_id, customer_id) values (v_owner, v_customer) returning id into v_d;
     insert into public.order_items
       (owner_id, order_id, description, qty, unit_cost_usd, trm, unit_price_cop, shipping_charged_cop)
-    values (v_owner, v_b, 'Caso A con precio', 2, 10, 4000, 56000, 0);
+    values (v_owner, v_d, 'Caso A con precio', 2, 10, 4000, 63500, 15000);
     select format('%s/%s/%s/%s/%s', cost_cop, price_cop, profit_cop, markup_effective, incomplete) into v_got
-      from public.v_order_items where order_id = v_b and description = 'Caso A con precio';
+      from public.v_order_items where order_id = v_d;
     assert v_got = '80000/112000/32000/0.4000/f', 'Caso A con precio c/u: ' || v_got;
+
+    select format('%s/%s/%s', items_price_cop, shipping_charged_cop, total_cop) into v_got
+      from public.v_orders where id = v_d;
+    assert v_got = '112000/15000/127000', 'Caso A con precio c/u, el envío no se suma encima: ' || v_got;
 
     -- Con costo pero sin precio ni %: incompleta.
     insert into public.order_items (owner_id, order_id, description, qty, unit_cost_usd, trm)

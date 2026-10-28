@@ -50,9 +50,9 @@ begin
     select format('%s/%s', qty, shipment_id = v_box) into v_got from public.order_items where id = v_keep;
     assert v_got = '3/t', 'Línea editada (cantidad / conserva caja): ' || v_got;
 
-    -- 3 × 60.000 + 20.000 + 15.000 de envío
+    -- 3 × 60.000 + 20.000: los 15.000 de envío ya vienen dentro del precio c/u
     select format('%s/%s', total_cop, notes) into v_got from public.v_orders where id = v_order;
-    assert v_got = '215000/editado', 'Total tras editar: ' || v_got;
+    assert v_got = '200000/editado', 'Total tras editar: ' || v_got;
 
     raise exception 'deshacer datos de prueba' using errcode = 'P0099';
   exception
