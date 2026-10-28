@@ -570,6 +570,7 @@ export type Database = {
           shipping_charged_cop: number | null
           status: string | null
           stock_shipping_cop: number | null
+          stock_shipping_units: number | null
           total_cop: number | null
         }
         Relationships: [
