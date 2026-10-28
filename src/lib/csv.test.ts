@@ -87,7 +87,7 @@ describe('exportaciones', () => {
       customerName: 'Ana',
     }
     expect(lines(orderLinesCsv([line]))[1]).toBe(
-      '10/10/2026;Ana;Crema Medicube;1;7,99;4123,45;32946;40%;46100;0;ENV-001;No;No;Entregado',
+      '10/10/2026;Ana;Crema Medicube;1;7,99;4123,45;32946;40%;46100;0;46100;ENV-001;No;No;Entregado',
     )
   })
 

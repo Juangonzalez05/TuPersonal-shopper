@@ -141,64 +141,69 @@ function OrderView({ order }: { order: OrderDetail }) {
       <section className="grid gap-2">
         <h3 className="font-semibold">Productos</h3>
         <ul className="divide-y rounded-lg border">
-          {order.items.map((item) => (
-            <li key={item.id} className="grid gap-1 p-3">
-              <div className="flex items-start justify-between gap-3">
-                <p className="font-medium">
-                  {item.qty} × {item.description}
-                </p>
-                <p className="shrink-0 font-medium tabular-nums">{formatCop(item.priceCop)}</p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {[
-                  item.priceCop > 0 && `${formatCop(Math.round(item.priceCop / item.qty))} c/u`,
-                  item.unitCostUsd > 0
-                    ? `costo ${formatUsd(item.unitCostUsd)} × TRM ${formatTrm(item.trm)} = ${formatCop(item.costCop)}`
-                    : 'sin costo para ti',
-                  item.markupEffective !== null && item.priceCop > 0 && `incremento ${formatPercent(item.markupEffective)}`,
-                  `ganancia ${formatCop(item.profitCop)}`,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-                {item.shippingChargedCop > 0 && ` · envío ${formatCop(item.shippingChargedCop)}`}
-              </p>
-              {(item.fromStock || item.shipmentId || item.incomplete) && (
-                <div className="flex flex-wrap gap-1.5">
-                  {item.fromStock && (
-                    <Badge asChild variant="outline">
-                      <Link to={`/inventario/${item.productId}`}>
-                        <Boxes />
-                        Del inventario
-                      </Link>
-                    </Badge>
-                  )}
-                  {item.shipmentId && (
-                    <Badge asChild variant="outline">
-                      <Link to={`/cajas/${item.shipmentId}`}>
-                        <Package />
-                        Caja {item.shipmentCode}
-                      </Link>
-                    </Badge>
-                  )}
-                  {item.incomplete && (
-                    <IncompleteBadge>
-                      {`Incompleta · ${[item.trm === 0 && 'falta TRM', item.markupPct === null && item.unitPriceCop === null && 'falta precio']
-                        .filter(Boolean)
-                        .join(' y ')}`}
-                    </IncompleteBadge>
-                  )}
+          {order.items.map((item) => {
+            // Lo que paga el cliente por la línea: el envío / gestión va incluido.
+            const chargedCop = item.priceCop + item.shippingChargedCop
+            const unitCop = item.unitPriceCop ?? Math.round(chargedCop / item.qty)
+            return (
+              <li key={item.id} className="grid gap-1 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-medium">
+                    {item.qty} × {item.description}
+                  </p>
+                  <p className="shrink-0 font-medium tabular-nums">{formatCop(chargedCop)}</p>
                 </div>
-              )}
-            </li>
-          ))}
+                <p className="text-xs text-muted-foreground">
+                  {[
+                    chargedCop > 0 && `${formatCop(unitCop)} c/u`,
+                    item.shippingChargedCop > 0 && `incluye envío ${formatCop(item.shippingChargedCop)}`,
+                    item.unitCostUsd > 0
+                      ? `costo ${formatUsd(item.unitCostUsd)} × TRM ${formatTrm(item.trm)} = ${formatCop(item.costCop)}`
+                      : 'sin costo para ti',
+                    item.markupEffective !== null && item.priceCop > 0 && `incremento ${formatPercent(item.markupEffective)}`,
+                    `ganancia ${formatCop(item.profitCop)}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+                {(item.fromStock || item.shipmentId || item.incomplete) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {item.fromStock && (
+                      <Badge asChild variant="outline">
+                        <Link to={`/inventario/${item.productId}`}>
+                          <Boxes />
+                          Del inventario
+                        </Link>
+                      </Badge>
+                    )}
+                    {item.shipmentId && (
+                      <Badge asChild variant="outline">
+                        <Link to={`/cajas/${item.shipmentId}`}>
+                          <Package />
+                          Caja {item.shipmentCode}
+                        </Link>
+                      </Badge>
+                    )}
+                    {item.incomplete && (
+                      <IncompleteBadge>
+                        {`Incompleta · ${[item.trm === 0 && 'falta TRM', item.markupPct === null && item.unitPriceCop === null && 'falta precio']
+                          .filter(Boolean)
+                          .join(' y ')}`}
+                      </IncompleteBadge>
+                    )}
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </section>
 
       <section className="grid gap-2">
         <h3 className="font-semibold">Totales</h3>
         <dl className="grid gap-1.5 rounded-lg border p-3 text-sm">
-          <TotalRow label="Productos" value={order.itemsPriceCop} />
-          <TotalRow label="Envío y gestión" value={order.shippingChargedCop} />
+          <TotalRow label="Productos (sin envío)" value={order.itemsPriceCop} />
+          <TotalRow label="Envío y gestión (incluido)" value={order.shippingChargedCop} />
           <TotalRow label="Total" value={order.totalCop} strong />
           <TotalRow label="Ganancia en productos" value={order.itemsProfitCop} muted />
           <div className="my-1 border-t" />

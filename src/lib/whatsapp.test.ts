@@ -17,15 +17,14 @@ const caseA: MessageOrder = {
 }
 
 describe('buildOrderMessage', () => {
-  it('arma el resumen con líneas, envío, total, abono, saldo y estado', () => {
+  it('arma el resumen con líneas (envío incluido), total, abono, saldo y estado', () => {
     expect(plain(buildOrderMessage(caseA))).toBe(
       [
         'Hola María, este es el resumen de tu pedido del 22/10/2026:',
         '',
-        '• 2 × Crema Medicube: $ 112.000',
-        '• 1 × Perfume que trajo ella: solo envío/gestión',
+        '• 2 × Crema Medicube: $ 127.000',
+        '• 1 × Perfume que trajo ella: $ 12.000 (envío/gestión)',
         '',
-        'Envío y gestión: $ 27.000',
         '*Total: $ 139.000*',
         'Abonado: $ 50.000',
         '*Saldo: $ 89.000*',
@@ -51,11 +50,12 @@ describe('buildOrderMessage', () => {
     expect(message).not.toContain('Saldo')
   })
 
-  it('omite el envío si no se cobró', () => {
+  it('no suma el envío aparte: ya va en el valor de cada producto', () => {
+    expect(buildOrderMessage(caseA)).not.toContain('Envío y gestión')
     const message = buildOrderMessage({
       ...caseA,
       items: [{ qty: 1, description: 'Oreo BTS', priceCop: 20_000, shippingChargedCop: 0 }],
     })
-    expect(message).not.toContain('Envío')
+    expect(message).not.toContain('envío')
   })
 })

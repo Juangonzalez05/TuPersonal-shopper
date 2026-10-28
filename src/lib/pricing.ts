@@ -1,11 +1,12 @@
 // Fórmulas del Excel (ROADMAP §4). Deben dar exactamente lo mismo que las vistas
 // v_order_items y v_orders:
 //   costo_total = ROUND(USD × TRM × cantidad)
-//   precio      = precio c/u × cantidad              si ella escribió el precio al cliente
+//   precio      = precio c/u × cantidad − envío       si ella escribió el precio al cliente
+//                                                    (ese precio ya trae el envío)
 //               = ROUND(costo_total × (1 + %), -2)   si no (a la centena, como el Excel)
-//   ganancia    = precio − costo_total
+//   ganancia    = precio − costo_total               (del producto; la del envío es por caja)
 //   incremento  = precio / costo − 1                 (informativo, 4 decimales)
-//   total       = precio + envío cobrado
+//   total       = precio + envío cobrado             (con precio c/u: precio c/u × cantidad)
 //   saldo       = total − abonos
 //   incompleta  = USD > 0 y (TRM = 0 o faltan precio y %)
 //
@@ -24,18 +25,19 @@ export type LineInput = {
   qty: number
   /** Fracción (0.40 = 40 %). null = no se usa (pedidos viejos o con precio escrito). */
   markupPct: number | null
-  /** Precio c/u al cliente en COP. Si viene, manda sobre el %. null = falta. */
+  /** Precio c/u al cliente en COP, con el envío incluido. Si viene, manda sobre el %. null = falta. */
   unitPriceCop: number | null
-  /** COP entero cobrado por envío/gestión en esta línea. */
+  /** COP entero de envío/gestión de esta línea: parte del precio c/u, o encima del precio con %. */
   shippingChargedCop: number
 }
 
 export type LineTotals = {
   costCop: number
+  /** Precio del producto, sin el envío. */
   priceCop: number
   profitCop: number
   shippingChargedCop: number
-  /** precio + envío cobrado */
+  /** Lo que paga el cliente por la línea: precio + envío. */
   totalCop: number
   incomplete: boolean
   /** Qué le falta a una línea incompleta. */
@@ -70,7 +72,7 @@ export function lineTotals(line: LineInput): LineTotals {
   const markupTenThousandths = toScaled(line.markupPct ?? 0, 10_000)
   const price =
     line.unitPriceCop !== null
-      ? BigInt(line.unitPriceCop) * BigInt(line.qty)
+      ? BigInt(line.unitPriceCop) * BigInt(line.qty) - BigInt(line.shippingChargedCop)
       : roundDiv(cost * (10_000n + markupTenThousandths), 1_000_000n) * 100n
 
   const missing: LineTotals['missing'] = []

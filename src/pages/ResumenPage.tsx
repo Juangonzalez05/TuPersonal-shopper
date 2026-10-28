@@ -72,8 +72,8 @@ export function ResumenPage() {
       </NativeSelect>
 
       <SummaryCard title="Lo que cobro">
-        <SummaryRow label="Productos (precio al público)" value={s.billing.productsCop} />
-        <SummaryRow label="Envío cobrado a clientes" value={s.billing.shippingCop} />
+        <SummaryRow label="Productos (sin el envío)" value={s.billing.productsCop} />
+        <SummaryRow label="Envío cobrado (incluido en los precios)" value={s.billing.shippingCop} />
         <SummaryRow label="Total facturado" value={s.billing.totalCop} strong />
         <SummaryRow label="Abonos y pagos recibidos" value={s.billing.paidCop} />
         <SummaryRow label="Saldo por cobrar" value={s.billing.balanceCop} strong to="/pedidos" />
