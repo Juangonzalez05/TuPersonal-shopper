@@ -569,6 +569,8 @@ export type Database = {
           payment_status: string | null
           shipping_charged_cop: number | null
           status: string | null
+          stock_boxed_real_cop: number | null
+          stock_boxed_units: number | null
           stock_shipping_cop: number | null
           stock_shipping_units: number | null
           total_cop: number | null

@@ -142,6 +142,8 @@ describe('editar pedido', () => {
     incompleteItems: 0,
     stockShippingCop: 0,
     stockShippingUnits: 0,
+    stockBoxedUnits: 0,
+    stockBoxedRealCop: 0,
     payments: [],
     items: [
       {

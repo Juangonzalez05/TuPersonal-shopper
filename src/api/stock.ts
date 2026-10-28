@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchAll } from '@/api/fetch-all'
 import { isDeliveryStatus, type DeliveryStatus } from '@/lib/order-labels'
-import { isStockState, type StockState } from '@/lib/stock'
+import { isStockState, netStockLevels, type StockState } from '@/lib/stock'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
@@ -19,10 +19,12 @@ export type StockItem = {
   name: string
   /** Ingresos + ajustes (sin caja o de cajas que ya llegaron). */
   enteredQty: number
-  /** Lo que traen las cajas que aún no llegan. */
+  /** Lo que traen las cajas que aún no llegan, sin las unidades ya vendidas. */
   inTransitQty: number
   /** Líneas "sale del inventario" de pedidos Confirmado en adelante. */
   soldQty: number
+  /** Unidades vendidas que saldrán de lo que viene en camino (se vendieron antes de que llegara la caja). */
+  committedQty: number
   availableQty: number
   state: StockState
 }
@@ -72,13 +74,15 @@ type SaleRow = {
 }
 
 function toStockItem(row: StockRow): StockItem {
+  const levels = netStockLevels(row.entered_qty ?? 0, row.in_transit_qty ?? 0, row.sold_qty ?? 0)
   return {
     productId: row.product_id!,
     name: row.name ?? '',
     enteredQty: row.entered_qty ?? 0,
-    inTransitQty: row.in_transit_qty ?? 0,
+    inTransitQty: levels.inTransitQty,
     soldQty: row.sold_qty ?? 0,
-    availableQty: row.available_qty ?? 0,
+    committedQty: levels.committedQty,
+    availableQty: levels.availableQty,
     state: isStockState(row.state) ? row.state : 'agotado',
   }
 }

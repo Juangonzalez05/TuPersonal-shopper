@@ -39,6 +39,10 @@ export type OrderSummary = {
   stockShippingCop: number
   /** Unidades vendidas del inventario con envío cobrado (su envío real se estima). */
   stockShippingUnits: number
+  /** De esas, las cuyo producto entró en una caja con costo por producto (se comparan con su caja). */
+  stockBoxedUnits: number
+  /** Lo que les toca de esas cajas. */
+  stockBoxedRealCop: number
 }
 
 export type OrderItem = {
@@ -104,6 +108,8 @@ function toOrderSummary(row: OrderRow): OrderSummary {
     incompleteItems: row.incomplete_items ?? 0,
     stockShippingCop: row.stock_shipping_cop ?? 0,
     stockShippingUnits: row.stock_shipping_units ?? 0,
+    stockBoxedUnits: row.stock_boxed_units ?? 0,
+    stockBoxedRealCop: row.stock_boxed_real_cop ?? 0,
   }
 }
 

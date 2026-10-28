@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { adjustmentQty, stockShortages, stockWarning } from './stock'
+import { adjustmentQty, netStockLevels, stockShortages, stockWarning } from './stock'
 
 describe('adjustmentQty', () => {
   it('sumar da positivo y restar negativo, sin importar el signo escrito', () => {
     expect(adjustmentQty('sumar', 3)).toBe(3)
     expect(adjustmentQty('restar', 3)).toBe(-3)
     expect(adjustmentQty('restar', -2)).toBe(-2)
+  })
+})
+
+describe('netStockLevels', () => {
+  it('lo vendido antes de que llegue la caja sale de lo que viene en camino', () => {
+    // 12 en una caja que no llega y 1 ya vendida: quedan 11 en camino y ninguna disponible.
+    expect(netStockLevels(0, 12, 1)).toEqual({ committedQty: 1, inTransitQty: 11, availableQty: 0 })
+  })
+
+  it('si alcanza con lo ingresado no toca lo que viene en camino', () => {
+    expect(netStockLevels(5, 10, 3)).toEqual({ committedQty: 0, inTransitQty: 10, availableQty: 2 })
+  })
+
+  it('si se vendió más de lo que viene, lo que falta sigue en negativo (por revisar)', () => {
+    expect(netStockLevels(0, 10, 15)).toEqual({ committedQty: 10, inTransitQty: 0, availableQty: -5 })
   })
 })
 
