@@ -13,7 +13,13 @@ export function StockRow({ item }: { item: StockItem }) {
         <p className="truncate font-medium">{item.name}</p>
         <p className="text-xs text-muted-foreground">
           ingresado {item.enteredQty} · vendido {item.soldQty}
-          {item.inTransitQty > 0 && <span className="font-medium text-amber-700"> · +{item.inTransitQty} en camino</span>}
+          {item.inTransitQty > 0 && (
+            <span className="font-medium text-amber-700">
+              {' '}
+              · +{item.inTransitQty} en camino
+              {item.committedQty > 0 && ` (${item.committedQty} ya vendido${item.committedQty === 1 ? '' : 's'})`}
+            </span>
+          )}
         </p>
         <StockBadge state={item.state} />
       </div>

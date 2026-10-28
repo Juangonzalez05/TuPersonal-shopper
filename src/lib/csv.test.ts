@@ -59,6 +59,8 @@ describe('exportaciones', () => {
       incompleteItems: 0,
       stockShippingCop: 0,
       stockShippingUnits: 0,
+      stockBoxedUnits: 0,
+      stockBoxedRealCop: 0,
     }
     expect(lines(ordersCsv([order]))[1]).toBe(
       '05/10/2026;María;3001234567;Comprado;Separado;112000;15000;127000;80000;32000;50000;77000;0;',

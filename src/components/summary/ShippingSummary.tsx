@@ -67,10 +67,7 @@ export function ShippingDetailRows({ shipping }: { shipping: Summary['shipping']
         </div>
       ) : (
         <>
-          <SummaryRow
-            label={`Envío estimado (${shipping.stockUnits} × ${formatCop(shipping.avgCostPerUnitCop ?? 0)} promedio)`}
-            value={shipping.stockEstimatedCop}
-          />
+          <SummaryRow label={estimatedLabel(shipping)} value={shipping.stockEstimatedCop} />
           <SummaryRow label="Ganancia estimada" value={shipping.stockProfitCop} strong signed />
         </>
       )}
@@ -93,6 +90,16 @@ export function ShippingDetailRows({ shipping }: { shipping: Summary['shipping']
       </div>
     </>
   )
+}
+
+/** "Envío estimado (1 con su caja + 2 × 4.163 promedio)": de dónde sale el estimado del inventario. */
+function estimatedLabel(shipping: Summary['shipping']): string {
+  const withAverage = shipping.stockUnits - shipping.stockBoxedUnits
+  const parts = [
+    shipping.stockBoxedUnits > 0 && `${shipping.stockBoxedUnits} con su caja`,
+    withAverage > 0 && `${withAverage} × ${formatCop(shipping.avgCostPerUnitCop ?? 0)} promedio`,
+  ].filter(Boolean)
+  return parts.length > 0 ? `Envío estimado (${parts.join(' + ')})` : 'Envío estimado'
 }
 
 /** Las cajas del periodo con su comparativa, y cuántas llegaron o siguen en camino. */

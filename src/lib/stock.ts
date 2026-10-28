@@ -37,6 +37,20 @@ export function adjustmentQty(direction: AdjustmentDirection, qty: number): numb
   return direction === 'restar' ? -units : units
 }
 
+/**
+ * Lo vendido que supera lo ingresado ya tiene dueño: sale de lo que viene en camino (se vendió
+ * antes de que llegara la caja). Devuelve esas unidades, lo que de verdad queda en camino y lo
+ * disponible sin contarlas como faltantes: 0 ingresadas, 12 en camino y 1 vendida da 11 en camino y 0 disponibles.
+ */
+export function netStockLevels(enteredQty: number, inTransitQty: number, soldQty: number) {
+  const committedQty = Math.min(Math.max(soldQty - enteredQty, 0), inTransitQty)
+  return {
+    committedQty,
+    inTransitQty: inTransitQty - committedQty,
+    availableQty: enteredQty - soldQty + committedQty,
+  }
+}
+
 const units = (n: number) => (n === 1 ? '1 unidad' : `${n} unidades`)
 
 /**

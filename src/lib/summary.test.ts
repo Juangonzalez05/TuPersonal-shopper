@@ -21,6 +21,8 @@ const order = (o: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'orderedOn' 
   incompleteItems: 0,
   stockShippingCop: 0,
   stockShippingUnits: 0,
+  stockBoxedUnits: 0,
+  stockBoxedRealCop: 0,
   ...o,
 })
 
@@ -63,6 +65,7 @@ const stockItem = (productId: string, availableQty: number, state: StockItem['st
   enteredQty: Math.max(availableQty, 0),
   inTransitQty: 0,
   soldQty: 0,
+  committedQty: 0,
   availableQty,
   state,
 })
@@ -116,6 +119,7 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
       boxesProfitCop: 10_000,
       stockChargedCop: 0,
       stockUnits: 0,
+      stockBoxedUnits: 0,
       // (10.000 + 8.000) / (4 + 1) productos de todas las cajas comparables
       avgCostPerUnitCop: 3_600,
       stockEstimatedCop: 0,
@@ -148,6 +152,7 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
       boxesProfitCop: 7_000,
       stockChargedCop: 5_000,
       stockUnits: 1,
+      stockBoxedUnits: 0,
       avgCostPerUnitCop: 3_600,
       stockEstimatedCop: 3_600,
       stockProfitCop: 1_400,
@@ -156,6 +161,23 @@ describe('buildSummary (fórmulas de la hoja Resumen)', () => {
       uncomparedBoxesCop: 4_000,
     })
     expect(summary.shipments).toMatchObject({ arrived: 2, inTransit: 2, withoutCost: 1, withoutProducts: 1 })
+  })
+
+  it('una venta del inventario cuyo producto entró en una caja se compara con esa caja, no con el promedio', () => {
+    const sale = (o: (typeof data.orders)[number]) => ({ ...data, orders: data.orders.map((x) => (x.id === 'sept' ? o : x)) })
+    const sept = data.orders.find((o) => o.id === 'sept')!
+    // 30.000 de envío cobrado y 2.655 de lo que le tocó de su caja
+    const boxed = buildSummary(
+      sale({ ...sept, stockShippingCop: 30_000, stockShippingUnits: 1, stockBoxedUnits: 1, stockBoxedRealCop: 2_655 }),
+      null,
+    )
+    expect(boxed.shipping).toMatchObject({ stockBoxedUnits: 1, stockEstimatedCop: 2_655, stockProfitCop: 27_345 })
+    // 3 unidades, 1 con su caja y 2 con el promedio de 3.600: 2.655 + 7.200
+    const mixed = buildSummary(
+      sale({ ...sept, stockShippingCop: 30_000, stockShippingUnits: 3, stockBoxedUnits: 1, stockBoxedRealCop: 2_655 }),
+      null,
+    )
+    expect(mixed.shipping).toMatchObject({ stockEstimatedCop: 9_855, stockProfitCop: 20_145 })
   })
 
   it('sin cajas comparables no hay estimado del inventario y no suma a la ganancia', () => {

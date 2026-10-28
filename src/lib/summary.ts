@@ -8,8 +8,9 @@
 //    se llama "Pagados".
 //  - La ganancia de envíos es por producto: el costo de cada caja se divide entre los productos
 //    que trae (v_shipments) y se compara con el envío cobrado a los pedidos que van en ella.
-//  - Las ventas del inventario no llegaron en una caja registrada: su envío real se estima con
-//    el costo por producto promedio de las cajas (solo las que tienen envío cobrado).
+//  - Las ventas del inventario (solo las que tienen envío cobrado) se comparan con la caja en
+//    que entró su producto, si la hay; si no, su envío real se estima con el costo por producto
+//    promedio de todas las cajas.
 
 import type { CashEntry } from '@/api/cash'
 import type { OrderSummary } from '@/api/orders'
@@ -44,9 +45,11 @@ export type Summary = {
     /** Ventas del inventario con envío cobrado (mes del pedido), contra el promedio de las cajas. */
     stockChargedCop: number
     stockUnits: number
+    /** De esas unidades, las cuyo producto entró en una caja con costo: se comparan con su caja. */
+    stockBoxedUnits: number
     /** Costo por producto promedio de todas las cajas comparables; null si aún no hay. */
     avgCostPerUnitCop: number | null
-    /** promedio × unidades; null si aún no hay promedio. */
+    /** Lo que les toca de su caja + promedio × las unidades sin caja; null si faltan cajas para el promedio. */
     stockEstimatedCop: number | null
     /** Ganancia estimada: cobrado − estimado (0 sin promedio). */
     stockProfitCop: number
@@ -94,7 +97,12 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
     allUnits > 0 ? Math.round(sum(allCompared, (s) => s.realCostCop ?? 0) / allUnits) : null
   const stockChargedCop = sum(orders, (o) => o.stockShippingCop)
   const stockUnits = sum(orders, (o) => o.stockShippingUnits)
-  const stockEstimatedCop = avgCostPerUnitCop === null ? null : avgCostPerUnitCop * stockUnits
+  const stockBoxedUnits = sum(orders, (o) => o.stockBoxedUnits)
+  const stockUnboxedUnits = stockUnits - stockBoxedUnits
+  const stockEstimatedCop =
+    stockUnboxedUnits > 0 && avgCostPerUnitCop === null
+      ? null
+      : sum(orders, (o) => o.stockBoxedRealCop) + (avgCostPerUnitCop ?? 0) * stockUnboxedUnits
   const stockProfit = stockEstimatedCop === null ? 0 : stockChargedCop - stockEstimatedCop
   const shippingProfit = boxesProfit + stockProfit
 
@@ -128,6 +136,7 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
       boxesProfitCop: boxesProfit,
       stockChargedCop,
       stockUnits,
+      stockBoxedUnits,
       avgCostPerUnitCop,
       stockEstimatedCop,
       stockProfitCop: stockProfit,

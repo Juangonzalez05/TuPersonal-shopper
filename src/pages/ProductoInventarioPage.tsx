@@ -53,6 +53,14 @@ function ProductView({ product }: { product: ProductStock }) {
           {product.inTransitQty > 0 && <Stat label="En camino" value={product.inTransitQty} />}
           <Stat label="Vendido" value={product.soldQty} />
         </dl>
+        {product.committedQty > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {product.committedQty === 1
+              ? '1 de las unidades que vienen en camino ya está vendida'
+              : `${product.committedQty} de las unidades que vienen en camino ya están vendidas`}
+            : al llegar la caja quedan {product.inTransitQty} disponibles.
+          </p>
+        )}
         {product.state === 'revisar' && (
           <p className="text-sm text-red-700">
             Se vendió más de lo ingresado. Revisa los movimientos y las ventas de abajo, o haz un ajuste.
