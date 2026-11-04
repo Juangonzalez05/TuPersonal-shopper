@@ -58,7 +58,7 @@ export function CashEntryRow({ entry, onEdit }: { entry: CashEntry; onEdit: (ent
         <CashSourceIcon source={entry.source} className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{title}</span>
+        <span className="line-clamp-2 font-medium leading-snug break-words">{title}</span>
         {detail && <span className="block truncate text-xs text-muted-foreground">{detail}</span>}
       </span>
       <CashAmount entry={entry} />
