@@ -57,7 +57,8 @@ export function DineroPage() {
   }
 
   return (
-    <div className="grid gap-4">
+    // grid-cols-1: la columna nunca pasa del ancho de la pantalla; un texto largo se corta con "…".
+    <div className="grid grid-cols-1 gap-4">
       <section className="grid gap-1 rounded-lg bg-primary p-4 text-primary-foreground">
         <p className="text-sm opacity-80">Plata del negocio hoy</p>
         <p className={cn('text-3xl font-semibold tabular-nums', balanceCop < 0 && 'text-red-300')}>
@@ -96,7 +97,7 @@ export function DineroPage() {
             <Button
               key={kind}
               variant={kind === 'reinversion' ? 'default' : 'outline'}
-              className="h-14 justify-start text-base"
+              className="h-14 justify-start text-left text-base leading-tight whitespace-normal"
               onClick={() => startAdding({ kind })}
             >
               <CashSourceIcon source={kind} className="size-5" />
@@ -141,7 +142,7 @@ export function DineroPage() {
         </p>
       )}
 
-      <section className="grid gap-3">
+      <section className="grid grid-cols-1 gap-3">
         <h2 className="font-semibold">Movimientos</h2>
         {flow.days.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -149,7 +150,7 @@ export function DineroPage() {
           </p>
         ) : (
           flow.days.map((day) => (
-            <div key={day.date} className="grid gap-1.5">
+            <div key={day.date} className="grid grid-cols-1 gap-1.5">
               <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
                 <span>{formatDate(day.date)}</span>
                 <span className="tabular-nums">

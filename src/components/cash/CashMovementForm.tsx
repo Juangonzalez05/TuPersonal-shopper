@@ -145,7 +145,8 @@ export function CashMovementForm({ kind, movement, order, defaultNote, onDone }:
         <NumberField label="Valor" prefix="$" error={errors.amount?.message} {...register('amount')} />
         <div className="grid gap-1.5">
           <Label htmlFor={`${id}-date`}>Fecha</Label>
-          <Input id={`${id}-date`} type="date" className="h-11 text-base" {...register('movedOn')} />
+          {/* px-2 y sin apariencia nativa: la fecha completa cabe en media pantalla del celular. */}
+          <Input id={`${id}-date`} type="date" className="h-11 appearance-none px-2 text-base" {...register('movedOn')} />
         </div>
       </div>
 
@@ -209,11 +210,12 @@ export function CashMovementForm({ kind, movement, order, defaultNote, onDone }:
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Uno debajo del otro: la nota suele ser larga y el medio no cabe en media pantalla. */}
+      <div className="grid gap-3">
         <div className="grid gap-1.5">
           <Label htmlFor={`${id}-method`}>Medio</Label>
           <NativeSelect id={`${id}-method`} containerClassName="w-full" className="h-11 text-base" {...register('method')}>
-            <NativeSelectOption value="">Sin especificar</NativeSelectOption>
+            <NativeSelectOption value="">Sin anotar</NativeSelectOption>
             {CASH_METHODS.map((method) => (
               <NativeSelectOption key={method} value={method}>
                 {method}
