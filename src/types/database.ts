@@ -237,6 +237,7 @@ export type Database = {
           created_at: string
           customer_id: string
           id: string
+          kind: string
           notes: string | null
           ordered_on: string
           owner_id: string
@@ -246,6 +247,7 @@ export type Database = {
           created_at?: string
           customer_id: string
           id?: string
+          kind?: string
           notes?: string | null
           ordered_on?: string
           owner_id?: string
@@ -255,6 +257,7 @@ export type Database = {
           created_at?: string
           customer_id?: string
           id?: string
+          kind?: string
           notes?: string | null
           ordered_on?: string
           owner_id?: string
@@ -562,6 +565,7 @@ export type Database = {
           items_cost_cop: number | null
           items_price_cop: number | null
           items_profit_cop: number | null
+          kind: string | null
           notes: string | null
           ordered_on: string | null
           owner_id: string | null
