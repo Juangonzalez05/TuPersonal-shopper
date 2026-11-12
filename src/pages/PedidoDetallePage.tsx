@@ -37,6 +37,7 @@ export function PedidoDetallePage() {
 function OrderView({ order }: { order: OrderDetail }) {
   const navigate = useNavigate()
   const updateStatus = useUpdateOrderStatus(order.id)
+  const isKit = order.kind === 'kit'
   const deletePayment = useDeletePayment()
   const deleteOrder = useDeleteOrder()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -56,6 +57,7 @@ function OrderView({ order }: { order: OrderDetail }) {
 
   const copyMessage = async () => {
     const message = buildOrderMessage({
+      kind: order.kind,
       customerName: order.customerName,
       orderedOn: order.orderedOn,
       status: order.status,
@@ -139,19 +141,23 @@ function OrderView({ order }: { order: OrderDetail }) {
       </section>
 
       <section className="grid gap-2">
-        <h3 className="font-semibold">Productos</h3>
+        <h3 className="font-semibold">{isKit ? 'Kit' : 'Productos'}</h3>
         <ul className="divide-y rounded-lg border">
           {order.items.map((item) => {
             // Lo que paga el cliente por la línea: el envío / gestión va incluido.
             const chargedCop = item.priceCop + item.shippingChargedCop
             const unitCop = item.unitPriceCop ?? Math.round(chargedCop / item.qty)
+            // En un kit, el contenido va en 0: su costo resta de la ganancia de la cajita.
+            const inKit = isKit && chargedCop === 0
             return (
               <li key={item.id} className="grid gap-1 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <p className="font-medium">
                     {item.qty} × {item.description}
                   </p>
-                  <p className="shrink-0 font-medium tabular-nums">{formatCop(chargedCop)}</p>
+                  <p className={cn('shrink-0 tabular-nums', inKit ? 'text-sm text-muted-foreground' : 'font-medium')}>
+                    {inKit ? 'En el kit' : formatCop(chargedCop)}
+                  </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {[
@@ -159,9 +165,13 @@ function OrderView({ order }: { order: OrderDetail }) {
                     item.shippingChargedCop > 0 && `incluye envío ${formatCop(item.shippingChargedCop)}`,
                     item.unitCostUsd > 0
                       ? `costo ${formatUsd(item.unitCostUsd)} × TRM ${formatTrm(item.trm)} = ${formatCop(item.costCop)}`
-                      : 'sin costo para ti',
-                    item.markupEffective !== null && item.priceCop > 0 && `incremento ${formatPercent(item.markupEffective)}`,
-                    `ganancia ${formatCop(item.profitCop)}`,
+                      : !isKit || inKit
+                        ? 'sin costo para ti'
+                        : false,
+                    !isKit && item.markupEffective !== null && item.priceCop > 0 && `incremento ${formatPercent(item.markupEffective)}`,
+                    isKit
+                      ? !inKit && `ganancia del kit ${formatCop(order.itemsProfitCop)}`
+                      : `ganancia ${formatCop(item.profitCop)}`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}

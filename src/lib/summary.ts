@@ -36,6 +36,8 @@ export type Summary = {
   profit: { productsCop: number; shippingCop: number; totalCop: number }
   /** ESTADO DE LAS VENTAS */
   sales: { pendiente: number; separado: number; pagado: number; incomplete: number; quotes: number }
+  /** Pedidos tipo kit del mes (Confirmado en adelante) y lo que dejaron. */
+  kits: { count: number; profitCop: number }
   /** GANANCIA DE ENVÍOS */
   shipping: {
     /** Pedidos en cajas del mes que ya se pueden comparar (con costo y productos). */
@@ -122,6 +124,13 @@ export function buildSummary(data: SummaryData, month: string | null): Summary {
       productsCop: productsProfit,
       shippingCop: shippingProfit,
       totalCop: productsProfit + shippingProfit,
+    },
+    kits: {
+      count: orders.filter((o) => o.kind === 'kit').length,
+      profitCop: sum(
+        orders.filter((o) => o.kind === 'kit'),
+        (o) => o.itemsProfitCop,
+      ),
     },
     sales: {
       pendiente: orders.filter((o) => o.paymentStatus === 'pendiente').length,

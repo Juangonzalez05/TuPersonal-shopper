@@ -23,6 +23,7 @@ const order = (o: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'orderedOn' 
   stockShippingUnits: 0,
   stockBoxedUnits: 0,
   stockBoxedRealCop: 0,
+  kind: 'pedido',
   ...o,
 })
 
@@ -269,5 +270,22 @@ describe('ganancia de envío', () => {
     expect(summary.costs.shippingCostCop).toBe(50_000)
     expect(summary.profit.shippingCop).toBe(17_000)
     expect(summary.shipments).toMatchObject({ inTransit: 3, withoutCost: 1 })
+  })
+})
+
+describe('kits', () => {
+  it('cuenta los kits confirmados del mes y su ganancia; las cotizaciones no', () => {
+    const s = buildSummary(
+      {
+        ...data,
+        orders: [
+          order({ id: 'k1', kind: 'kit', orderedOn: '2026-11-05', status: 'confirmado', itemsProfitCop: 35_000 }),
+          order({ id: 'k2', kind: 'kit', orderedOn: '2026-11-06', status: 'cotizado', itemsProfitCop: 20_000 }),
+          order({ id: 'p1', orderedOn: '2026-11-06', status: 'confirmado', itemsProfitCop: 10_000 }),
+        ],
+      },
+      '2026-11',
+    )
+    expect(s.kits).toEqual({ count: 1, profitCop: 35_000 })
   })
 })

@@ -59,3 +59,20 @@ describe('buildOrderMessage', () => {
     expect(message).not.toContain('envío')
   })
 })
+
+describe('mensaje de un kit', () => {
+  it('muestra la cajita con su precio y debajo lo que incluye, sin precios', () => {
+    const message = plain(
+      buildOrderMessage({
+        ...caseA,
+        kind: 'kit',
+        items: [
+          { qty: 2, description: 'Kit Spa', priceCop: 115_000, shippingChargedCop: 5_000 },
+          { qty: 2, description: 'Crema', priceCop: 0, shippingChargedCop: 0 },
+        ],
+      }),
+    )
+    expect(message).toContain('• 2 × Kit Spa: $ 120.000\nIncluye:\n   - 2 × Crema\n')
+    expect(message).not.toContain('Crema: $')
+  })
+})

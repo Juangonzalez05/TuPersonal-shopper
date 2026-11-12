@@ -17,6 +17,7 @@ import { decimalInputValue, formatCop } from '@/lib/format'
 import { PAYMENT_METHODS } from '@/lib/order-labels'
 import {
   emptyLine,
+  formLineInputs,
   initialPaymentCop,
   orderFormSchema,
   toLineInput,
@@ -30,6 +31,11 @@ import { cn } from '@/lib/utils'
 const STATUS_OPTIONS = [
   { value: 'cotizado', label: 'Cotización' },
   { value: 'confirmado', label: 'Confirmado' },
+] as const
+
+const KIND_OPTIONS = [
+  { value: 'pedido', label: 'Pedido' },
+  { value: 'kit', label: 'Kit' },
 ] as const
 
 const PAYMENT_OPTIONS: { value: PaymentMode; label: string }[] = [
@@ -73,7 +79,8 @@ export function OrderForm({ mode, defaultValues, pending, submitLabel, onSubmit 
   const values = useWatch({ control }) as OrderFormValues
   const lines = values.lines ?? []
   const paid = mode === 'create' ? initialPaymentCop(values) : 0
-  const totals = orderTotals(lines.map(toLineInput), paid)
+  const isKit = values.kind === 'kit'
+  const totals = orderTotals(formLineInputs(values), paid)
   const stockLevels = new Map<string, StockLevels>(
     (stock.data ?? []).map((item) => [item.productId, { available: item.availableQty, inTransit: item.inTransitQty }]),
   )
@@ -100,12 +107,27 @@ export function OrderForm({ mode, defaultValues, pending, submitLabel, onSubmit 
       >
         <CustomerPicker customers={customers.data ?? []} />
 
+        <div className="grid gap-1.5">
+          <Label>¿Qué vende?</Label>
+          <Segmented
+            label="Pedido o kit"
+            options={KIND_OPTIONS}
+            value={values.kind}
+            onChange={(value) => setValue('kind', value, { shouldValidate: formState.isSubmitted })}
+          />
+          {isKit && (
+            <p className="text-xs text-muted-foreground">
+              Una cajita con varios productos a un precio fijo. Abajo anotas qué lleva.
+            </p>
+          )}
+        </div>
+
         <div className={cn('grid gap-3', mode === 'create' && 'grid-cols-2')}>
           {mode === 'create' && (
             <div className="grid gap-1.5">
-              <Label>Tipo</Label>
+              <Label>Estado</Label>
               <Segmented
-                label="Tipo de pedido"
+                label="Estado del pedido"
                 options={STATUS_OPTIONS}
                 value={values.status}
                 onChange={(value) => setValue('status', value)}
@@ -118,8 +140,44 @@ export function OrderForm({ mode, defaultValues, pending, submitLabel, onSubmit 
           </div>
         </div>
 
+        {isKit && (
+          <section className="grid gap-3 rounded-lg border p-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="kit-name">Nombre del kit</Label>
+              <Input id="kit-name" placeholder="Opcional · p. ej. Kit Spa" className="h-11 text-base" {...register('kit.name')} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <NumberField
+                label="Precio por cajita"
+                prefix="$"
+                placeholder="0"
+                error={formState.errors.kit?.price?.message}
+                {...register('kit.price')}
+              />
+              <NumberField
+                label="Cajitas"
+                inputMode="numeric"
+                error={formState.errors.kit?.qty?.message}
+                {...register('kit.qty')}
+              />
+            </div>
+            <NumberField
+              label="Envío / gestión (incluido en el precio)"
+              prefix="$"
+              placeholder="0"
+              error={formState.errors.kit?.shipping?.message}
+              {...register('kit.shipping')}
+            />
+          </section>
+        )}
+
         <section className="grid gap-3">
-          <h2 className="font-semibold">Productos</h2>
+          <h2 className="font-semibold">{isKit ? 'Qué lleva' : 'Productos'}</h2>
+          {isKit && (
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Cantidad total para todas las cajitas. Solo el costo: el precio es el de la cajita.
+            </p>
+          )}
           {fields.map((field, index) => (
             <OrderLineFields
               key={field.id}
@@ -129,6 +187,7 @@ export function OrderForm({ mode, defaultValues, pending, submitLabel, onSubmit 
               lastCosts={lastCosts.data ?? new Map()}
               unitPrices={lastPricing.data?.unitPrices ?? new Map()}
               shortages={shortages}
+              inKit={isKit}
               onRemove={fields.length > 1 ? () => remove(index) : undefined}
             />
           ))}

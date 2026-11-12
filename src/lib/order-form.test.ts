@@ -3,6 +3,7 @@ import type { OrderDetail } from '@/api/orders'
 import {
   emptyLine,
   emptyOrder,
+  formLineInputs,
   initialPaymentCop,
   orderFormSchema,
   orderToFormValues,
@@ -11,7 +12,7 @@ import {
   toUpdateOrderArgs,
   type OrderFormValues,
 } from './order-form'
-import { impliedMarkup, lineTotals } from './pricing'
+import { impliedMarkup, lineTotals, orderTotals } from './pricing'
 
 // Caso A del roadmap escrito como lo haría ella en el celular: precio c/u al cliente 63.500,
 // que ya trae los 15.000 de envío (2 × 63.500 = 127.000).
@@ -106,6 +107,7 @@ describe('toCreateOrderArgs', () => {
       ],
       p_initial_payment_cop: 50_000,
       p_payment_method: 'Nequi',
+      kind: 'pedido',
     })
   })
 
@@ -122,51 +124,52 @@ describe('toCreateOrderArgs', () => {
   })
 })
 
+const saved: OrderDetail = {
+  id: 'o-1',
+  customerId: 'c-1',
+  customerName: 'María',
+  customerPhone: null,
+  orderedOn: '2026-10-22',
+  status: 'comprado',
+  notes: null,
+  itemsPriceCop: 112_000,
+  itemsCostCop: 80_000,
+  itemsProfitCop: 32_000,
+  shippingChargedCop: 15_000,
+  totalCop: 127_000,
+  paidCop: 0,
+  balanceCop: 127_000,
+  paymentStatus: 'pendiente',
+  incompleteItems: 0,
+  stockShippingCop: 0,
+  stockShippingUnits: 0,
+  stockBoxedUnits: 0,
+  stockBoxedRealCop: 0,
+  kind: 'pedido',
+  payments: [],
+  items: [
+    {
+      id: 'l-1',
+      productId: null,
+      description: 'Pedido viejo con %',
+      qty: 2,
+      unitCostUsd: 10,
+      trm: 4000,
+      markupPct: 0.4,
+      unitPriceCop: null,
+      markupEffective: 0.4,
+      shippingChargedCop: 15_000,
+      costCop: 80_000,
+      priceCop: 112_000,
+      profitCop: 32_000,
+      incomplete: false,
+      fromStock: false,
+      shipmentId: 's-1',
+      shipmentCode: 'ENV-001',
+    },
+  ],
+}
 describe('editar pedido', () => {
-  const saved: OrderDetail = {
-    id: 'o-1',
-    customerId: 'c-1',
-    customerName: 'María',
-    customerPhone: null,
-    orderedOn: '2026-10-22',
-    status: 'comprado',
-    notes: null,
-    itemsPriceCop: 112_000,
-    itemsCostCop: 80_000,
-    itemsProfitCop: 32_000,
-    shippingChargedCop: 15_000,
-    totalCop: 127_000,
-    paidCop: 0,
-    balanceCop: 127_000,
-    paymentStatus: 'pendiente',
-    incompleteItems: 0,
-    stockShippingCop: 0,
-    stockShippingUnits: 0,
-    stockBoxedUnits: 0,
-    stockBoxedRealCop: 0,
-    payments: [],
-    items: [
-      {
-        id: 'l-1',
-        productId: null,
-        description: 'Pedido viejo con %',
-        qty: 2,
-        unitCostUsd: 10,
-        trm: 4000,
-        markupPct: 0.4,
-        unitPriceCop: null,
-        markupEffective: 0.4,
-        shippingChargedCop: 15_000,
-        costCop: 80_000,
-        priceCop: 112_000,
-        profitCop: 32_000,
-        incomplete: false,
-        fromStock: false,
-        shipmentId: 's-1',
-        shipmentCode: 'ENV-001',
-      },
-    ],
-  }
 
   it('una línea vieja con % toma el precio c/u con el envío incluido (mismo total) y conserva su id', () => {
     const values = orderToFormValues(saved)
@@ -210,5 +213,50 @@ describe('orderFormSchema', () => {
     const fromCatalog = { ...caseA, lines: [{ ...caseA.lines[0], fromStock: true }] }
     expect(orderFormSchema.safeParse(fromCatalog).success).toBe(true)
     expect(toCreateOrderArgs(fromCatalog).p_items).toMatchObject([{ product_id: 'p-1', from_stock: true }])
+  })
+})
+
+describe('pedido tipo kit', () => {
+  // 2 cajitas de 60.000 (5.000 de envío incluido) con un producto del inventario de 5 USD × 4.000.
+  const kit: OrderFormValues = {
+    ...emptyOrder('2026-11-12'),
+    customerName: 'Ana',
+    kind: 'kit',
+    kit: { id: null, name: 'Kit Spa', qty: '2', price: '60000', shipping: '5000' },
+    lines: [
+      { ...emptyLine(), productId: 'p-1', fromStock: true, description: 'Crema', qty: '2', usd: '5', trm: '4000', price: '99000' },
+    ],
+  }
+
+  it('guarda la línea del kit con su precio y el contenido con precio 0 y sin envío', () => {
+    const items = toCreateOrderArgs(kit).p_items as Record<string, unknown>[]
+    expect(items[0]).toMatchObject({ product_id: null, description: 'Kit Spa', qty: 2, unit_price_cop: 60_000, shipping_charged_cop: 5_000, unit_cost_usd: 0 })
+    expect(items[1]).toMatchObject({ product_id: 'p-1', from_stock: true, qty: 2, unit_price_cop: 0, shipping_charged_cop: 0, unit_cost_usd: 5 })
+    expect(toCreateOrderArgs(kit).kind).toBe('kit')
+  })
+
+  it('total = precio × cajitas y ganancia = total − costo del contenido', () => {
+    expect(orderTotals(formLineInputs(kit), 0)).toMatchObject({ totalCop: 120_000, itemsCostCop: 40_000 })
+    expect(initialPaymentCop({ ...kit, paymentMode: 'total' })).toBe(120_000)
+  })
+
+  it('sin precio de la cajita no se puede guardar', () => {
+    expect(orderFormSchema.safeParse({ ...kit, kit: { ...kit.kit, price: '' } }).success).toBe(false)
+  })
+
+  it('al editar separa la línea del kit del contenido', () => {
+    const line = (o: Partial<OrderDetail['items'][number]>) => ({ ...saved.items[0], markupPct: null, shipmentId: null, shipmentCode: null, ...o })
+    const values = orderToFormValues({
+      ...saved,
+      kind: 'kit',
+      items: [
+        line({ id: 'k', description: 'Kit', qty: 2, unitCostUsd: 0, unitPriceCop: 60_000, shippingChargedCop: 5_000 }),
+        line({ id: 'c', productId: 'p-1', fromStock: true, description: 'Crema', qty: 2, unitPriceCop: 0, shippingChargedCop: 0 }),
+      ],
+    })
+    expect(values.kind).toBe('kit')
+    expect(values.kit).toEqual({ id: 'k', name: '', qty: '2', price: '60000', shipping: '5000' })
+    expect(values.lines).toHaveLength(1)
+    expect(values.lines[0]).toMatchObject({ id: 'c', description: 'Crema' })
   })
 })
