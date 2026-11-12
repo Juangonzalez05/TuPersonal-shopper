@@ -18,8 +18,12 @@ export const orderKeys = {
 
 // ---------- Tipos limpios (las vistas devuelven todo como nullable) ----------
 
+/** Pedido normal o kit (cajita con varios productos a un precio fijo). */
+export type OrderKind = 'pedido' | 'kit'
+
 export type OrderSummary = {
   id: string
+  kind: OrderKind
   customerId: string
   customerName: string
   customerPhone: string | null
@@ -91,6 +95,7 @@ const ORDER_SELECT = '*, customer:customers(name, phone)'
 function toOrderSummary(row: OrderRow): OrderSummary {
   return {
     id: row.id!,
+    kind: row.kind === 'kit' ? 'kit' : 'pedido',
     customerId: row.customer_id!,
     customerName: row.customer?.name ?? '—',
     customerPhone: row.customer?.phone ?? null,
@@ -268,9 +273,14 @@ export type CreateOrderArgs = Database['public']['Functions']['create_order']['A
 export function useCreateOrder() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (args: CreateOrderArgs) => {
+    mutationFn: async ({ kind = 'pedido', ...args }: CreateOrderArgs & { kind?: OrderKind }) => {
       const { data, error } = await supabase.rpc('create_order', args)
       if (error) throw error
+      // create_order no recibe el tipo: un kit se marca justo después.
+      if (kind !== 'pedido') {
+        const marked = await supabase.from('orders').update({ kind }).eq('id', data)
+        if (marked.error) throw marked.error
+      }
       return data
     },
     onSuccess: () => {
@@ -290,9 +300,13 @@ export type UpdateOrderArgs = Database['public']['Functions']['update_order']['A
 export function useUpdateOrder() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (args: UpdateOrderArgs) => {
+    mutationFn: async ({ kind, ...args }: UpdateOrderArgs & { kind?: OrderKind }) => {
       const { data, error } = await supabase.rpc('update_order', args)
       if (error) throw error
+      if (kind) {
+        const marked = await supabase.from('orders').update({ kind }).eq('id', args.p_order_id)
+        if (marked.error) throw marked.error
+      }
       return data
     },
     onSuccess: () => {

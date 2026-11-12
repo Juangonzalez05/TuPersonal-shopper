@@ -25,6 +25,8 @@ type OrderLineFieldsProps = {
   unitPrices: Map<string, number>
   /** Productos que no alcanzan, sumando todas las líneas del pedido. */
   shortages: Map<string, Shortage>
+  /** Contenido de un kit: sin precio ni envío (el precio es el de la cajita). */
+  inKit?: boolean
   onRemove?: () => void
 }
 
@@ -43,13 +45,14 @@ export function OrderLineFields({
   lastCosts,
   unitPrices,
   shortages,
+  inKit = false,
   onRemove,
 }: OrderLineFieldsProps) {
   const switchId = useId()
   const { control, register, setValue, trigger, formState } = useFormContext<OrderFormValues>()
   const line = useWatch({ control, name: `lines.${index}` })
   const errors = formState.errors.lines?.[index]
-  const input = toLineInput(line)
+  const input = inKit ? { ...toLineInput(line), unitPriceCop: 0, shippingChargedCop: 0 } : toLineInput(line)
   const totals = lineTotals(input)
   const shortage = line.fromStock && line.productId ? shortages.get(line.productId) : undefined
   const warning = shortage ? stockWarning(shortage.available, shortage.requested, shortage.inTransit) : null
@@ -175,44 +178,54 @@ export function OrderLineFields({
           {...register(`lines.${index}.qty`)}
         />
         <NumberField label="TRM" placeholder="0" error={errors?.trm?.message} {...register(`lines.${index}.trm`)} />
-        <NumberField
-          label="Precio c/u al cliente"
-          prefix="$"
-          placeholder="0"
-          error={errors?.price?.message}
-          {...register(`lines.${index}.price`)}
-        />
+        {!inKit && (
+          <NumberField
+            label="Precio c/u al cliente"
+            prefix="$"
+            placeholder="0"
+            error={errors?.price?.message}
+            {...register(`lines.${index}.price`)}
+          />
+        )}
       </div>
-      <NumberField
-        label="Envío / gestión (incluido en el precio)"
-        prefix="$"
-        placeholder="0"
-        error={errors?.shipping?.message}
-        {...register(`lines.${index}.shipping`)}
-      />
+      {inKit ? (
+        <p className="-mt-1 text-sm text-muted-foreground">
+          Costo en el kit <span className="font-medium text-foreground tabular-nums">{formatCop(totals.costCop)}</span>
+        </p>
+      ) : (
+        <>
+          <NumberField
+            label="Envío / gestión (incluido en el precio)"
+            prefix="$"
+            placeholder="0"
+            error={errors?.shipping?.message}
+            {...register(`lines.${index}.shipping`)}
+          />
 
-      <dl className="grid grid-cols-3 gap-2 rounded-md bg-muted/60 p-2 text-center">
-        <LiveValue label="Costo" value={totals.costCop} />
-        <LiveValue label="Cobras" value={totals.totalCop} />
-        <LiveValue label="Ganancia" value={totals.profitCop} highlight />
-      </dl>
-      {(totals.shippingChargedCop > 0 || (markup !== null && totals.priceCop > 0)) && (
-        <p className="-mt-1 text-center text-xs text-muted-foreground">
-          {totals.shippingChargedCop > 0 && <>Incluye envío {formatCop(totals.shippingChargedCop)}</>}
-          {totals.shippingChargedCop > 0 && markup !== null && totals.priceCop > 0 && ' · '}
-          {markup !== null && totals.priceCop > 0 && (
-            <>
-              Incremento del producto:{' '}
-              <span className="font-medium text-foreground">{formatPercent(markup)}</span>
-            </>
+          <dl className="grid grid-cols-3 gap-2 rounded-md bg-muted/60 p-2 text-center">
+            <LiveValue label="Costo" value={totals.costCop} />
+            <LiveValue label="Cobras" value={totals.totalCop} />
+            <LiveValue label="Ganancia" value={totals.profitCop} highlight />
+          </dl>
+          {(totals.shippingChargedCop > 0 || (markup !== null && totals.priceCop > 0)) && (
+            <p className="-mt-1 text-center text-xs text-muted-foreground">
+              {totals.shippingChargedCop > 0 && <>Incluye envío {formatCop(totals.shippingChargedCop)}</>}
+              {totals.shippingChargedCop > 0 && markup !== null && totals.priceCop > 0 && ' · '}
+              {markup !== null && totals.priceCop > 0 && (
+                <>
+                  Incremento del producto:{' '}
+                  <span className="font-medium text-foreground">{formatPercent(markup)}</span>
+                </>
+              )}
+            </p>
           )}
-        </p>
-      )}
-      {shippingOverPrice && (
-        <p className="-mt-1 flex items-center gap-1.5 text-sm text-amber-700">
-          <AlertTriangle className="size-4 shrink-0" />
-          El envío es mayor que lo que cobras por este producto.
-        </p>
+          {shippingOverPrice && (
+            <p className="-mt-1 flex items-center gap-1.5 text-sm text-amber-700">
+              <AlertTriangle className="size-4 shrink-0" />
+              El envío es mayor que lo que cobras por este producto.
+            </p>
+          )}
+        </>
       )}
       {totals.incomplete && (
         <IncompleteBadge>{`Incompleta · ${totals.missing.map((m) => missingLabel[m]).join(' y ')}`}</IncompleteBadge>

@@ -11,7 +11,12 @@ export function OrderCard({ order }: { order: OrderSummary }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-medium">{order.customerName}</p>
+          <p className="flex min-w-0 items-center gap-1.5 font-medium">
+            <span className="truncate">{order.customerName}</span>
+            {order.kind === 'kit' && (
+              <span className="shrink-0 rounded-full bg-gold/20 px-2 py-0.5 text-xs font-semibold text-primary">Kit</span>
+            )}
+          </p>
           <p className="text-xs text-muted-foreground">{formatDate(order.orderedOn)}</p>
         </div>
         <div className="shrink-0 text-right">

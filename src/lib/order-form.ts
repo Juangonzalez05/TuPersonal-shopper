@@ -2,9 +2,13 @@
 // escribe) y se leen con format.ts tanto para el cálculo en vivo como al guardar.
 //
 // Ella escribe el precio c/u que le da al cliente; el % de incremento sale solo (pricing.ts).
+//
+// Un kit (cajita con varios productos a un precio fijo) se guarda con las mismas líneas: la del
+// kit (nombre, cajitas, precio c/u, sin costo) y el contenido con su costo y precio c/u 0. Así
+// total = precio × cajitas y ganancia = total − costo del contenido, sin fórmulas nuevas.
 
 import { z } from 'zod'
-import type { CreateOrderArgs, OrderDetail, UpdateOrderArgs } from '@/api/orders'
+import type { CreateOrderArgs, OrderDetail, OrderItem, OrderKind, UpdateOrderArgs } from '@/api/orders'
 import { decimalInputValue, parseCop, parseDecimal, phoneDigits } from '@/lib/format'
 import { orderTotals, type LineInput } from '@/lib/pricing'
 
@@ -44,6 +48,23 @@ const lineSchema = z
     message: 'Para sacar del inventario elige un producto del catálogo.',
   })
 
+const kitSchema = z.object({
+  /** Línea del kit ya guardada (al editar); null = nueva. */
+  id: z.string().nullable(),
+  name: z.string(),
+  qty: z.string().refine((value) => {
+    const n = parseDecimal(value)
+    return n !== null && Number.isInteger(n) && n >= 1 && n <= 1_000
+  }, 'Cantidad entera desde 1.'),
+  price: optionalNumber(MAX_COP, 'Precio inválido.'),
+  shipping: optionalNumber(MAX_COP, 'Valor inválido.'),
+})
+
+export type KitValues = z.infer<typeof kitSchema>
+
+/** Nombre de la línea del kit cuando ella no le pone uno. */
+export const KIT_DEFAULT_NAME = 'Kit'
+
 export const PAYMENT_MODES = ['none', 'abono', 'total'] as const
 export type PaymentMode = (typeof PAYMENT_MODES)[number]
 
@@ -60,6 +81,12 @@ export const orderFormSchema = z
     paymentMode: z.enum(PAYMENT_MODES),
     initialPayment: optionalNumber(MAX_COP, 'Valor inválido.'),
     paymentMethod: z.string(),
+    kind: z.enum(['pedido', 'kit']),
+    kit: kitSchema,
+  })
+  .refine((values) => values.kind !== 'kit' || (parseCop(values.kit.price) ?? 0) > 0, {
+    path: ['kit', 'price'],
+    message: 'Escribe el precio de la cajita.',
   })
   .refine((values) => values.paymentMode !== 'abono' || (parseCop(values.initialPayment) ?? 0) > 0, {
     path: ['initialPayment'],
@@ -83,6 +110,8 @@ export function emptyLine(prefill: { trm?: number | null; unitPriceCop?: number 
   }
 }
 
+export const emptyKit = (): KitValues => ({ id: null, name: '', qty: '1', price: '', shipping: '' })
+
 export function emptyOrder(today: string): OrderFormValues {
   return {
     customerId: null,
@@ -95,11 +124,28 @@ export function emptyOrder(today: string): OrderFormValues {
     paymentMode: 'none',
     initialPayment: '',
     paymentMethod: '',
+    kind: 'pedido',
+    kit: emptyKit(),
   }
+}
+
+/**
+ * Las líneas de un kit guardado: la del kit (la primera con precio, escrita a mano) y el
+ * contenido (el resto). null si no se encuentra la línea del kit.
+ */
+export function splitKitItems<T extends Pick<OrderItem, 'productId' | 'fromStock' | 'unitPriceCop'>>(
+  items: T[],
+): { kit: T; contents: T[] } | null {
+  const kit =
+    items.find((item) => (item.unitPriceCop ?? 0) > 0 && item.productId === null && !item.fromStock) ??
+    items.find((item) => (item.unitPriceCop ?? 0) > 0)
+  return kit ? { kit, contents: items.filter((item) => item !== kit) } : null
 }
 
 /** Pedido guardado → formulario de edición. Las líneas viejas sin precio c/u lo toman del precio calculado. */
 export function orderToFormValues(order: OrderDetail): OrderFormValues {
+  const split = order.kind === 'kit' ? splitKitItems(order.items) : null
+  const items = split ? split.contents : order.items
   return {
     customerId: order.customerId,
     customerName: order.customerName,
@@ -107,7 +153,7 @@ export function orderToFormValues(order: OrderDetail): OrderFormValues {
     status: order.status === 'cotizado' ? 'cotizado' : 'confirmado',
     orderedOn: order.orderedOn,
     notes: order.notes ?? '',
-    lines: order.items.map((item) => {
+    lines: items.map((item) => {
       // Una línea vieja con % pasa a precio c/u con el envío incluido, para que su total no cambie.
       const unitPrice =
         item.unitPriceCop ??
@@ -127,6 +173,16 @@ export function orderToFormValues(order: OrderDetail): OrderFormValues {
     paymentMode: 'none',
     initialPayment: '',
     paymentMethod: '',
+    kind: split ? 'kit' : 'pedido',
+    kit: split
+      ? {
+          id: split.kit.id,
+          name: split.kit.description === KIT_DEFAULT_NAME ? '' : split.kit.description,
+          qty: String(split.kit.qty),
+          price: String(split.kit.unitPriceCop ?? ''),
+          shipping: split.kit.shippingChargedCop > 0 ? String(split.kit.shippingChargedCop) : '',
+        }
+      : emptyKit(),
   }
 }
 
@@ -143,16 +199,43 @@ export function toLineInput(line: OrderLineValues): LineInput {
   }
 }
 
+/** La línea del kit como entrada de pricing.ts: sin costo, precio c/u = precio de la cajita. */
+export function kitLineInput(kit: KitValues): LineInput {
+  const qty = parseDecimal(kit.qty)
+  return {
+    unitCostUsd: 0,
+    trm: 0,
+    qty: qty !== null && Number.isInteger(qty) && qty > 0 ? qty : 1,
+    markupPct: null,
+    unitPriceCop: parseCop(kit.price) ?? 0,
+    shippingChargedCop: parseCop(kit.shipping) ?? 0,
+  }
+}
+
+/**
+ * Todas las líneas del pedido como entradas de pricing.ts. En un kit: la línea del kit y el
+ * contenido con precio c/u 0 y sin envío (su costo resta de la ganancia del kit).
+ */
+export function formLineInputs(values: Pick<OrderFormValues, 'kind' | 'kit' | 'lines'>): LineInput[] {
+  if (values.kind !== 'kit') return values.lines.map(toLineInput)
+  return [
+    kitLineInput(values.kit),
+    ...values.lines.map((line) => ({ ...toLineInput(line), unitPriceCop: 0, shippingChargedCop: 0 })),
+  ]
+}
+
 /** Cuánto se registra como pago al crear: nada, el abono escrito o el total del pedido. */
 export function initialPaymentCop(values: OrderFormValues): number {
   if (values.paymentMode === 'abono') return parseCop(values.initialPayment) ?? 0
-  if (values.paymentMode === 'total') return orderTotals(values.lines.map(toLineInput), 0).totalCop
+  if (values.paymentMode === 'total') return orderTotals(formLineInputs(values), 0).totalCop
   return 0
 }
 
-function toItems(lines: OrderLineValues[]) {
-  return lines.map((line) => {
-    const input = toLineInput(line)
+function toItems(values: OrderFormValues) {
+  const inputs = formLineInputs(values)
+  const offset = values.kind === 'kit' ? 1 : 0
+  const contents = values.lines.map((line, index) => {
+    const input = inputs[index + offset]
     return {
       ...(line.id ? { id: line.id } : {}),
       product_id: line.productId,
@@ -166,6 +249,23 @@ function toItems(lines: OrderLineValues[]) {
       from_stock: line.fromStock,
     }
   })
+  if (values.kind !== 'kit') return contents
+  const kit = inputs[0]
+  return [
+    {
+      ...(values.kit.id ? { id: values.kit.id } : {}),
+      product_id: null,
+      description: values.kit.name.trim() || KIT_DEFAULT_NAME,
+      qty: kit.qty,
+      unit_cost_usd: 0,
+      trm: 0,
+      markup_pct: null,
+      unit_price_cop: kit.unitPriceCop,
+      shipping_charged_cop: kit.shippingChargedCop,
+      from_stock: false,
+    },
+    ...contents,
+  ]
 }
 
 function customerArgs(values: OrderFormValues) {
@@ -177,25 +277,27 @@ function customerArgs(values: OrderFormValues) {
   }
 }
 
-export function toCreateOrderArgs(values: OrderFormValues): CreateOrderArgs {
+export function toCreateOrderArgs(values: OrderFormValues): CreateOrderArgs & { kind: OrderKind } {
   const payment = initialPaymentCop(values)
   return {
     ...customerArgs(values),
     p_ordered_on: values.orderedOn,
     p_status: values.status,
     p_notes: values.notes.trim() || undefined,
-    p_items: toItems(values.lines),
+    p_items: toItems(values),
     p_initial_payment_cop: payment,
     p_payment_method: payment > 0 && values.paymentMethod ? values.paymentMethod : undefined,
+    kind: values.kind,
   }
 }
 
-export function toUpdateOrderArgs(orderId: string, values: OrderFormValues): UpdateOrderArgs {
+export function toUpdateOrderArgs(orderId: string, values: OrderFormValues): UpdateOrderArgs & { kind: OrderKind } {
   return {
     p_order_id: orderId,
     ...customerArgs(values),
     p_ordered_on: values.orderedOn,
     p_notes: values.notes.trim() || undefined,
-    p_items: toItems(values.lines),
+    p_items: toItems(values),
+    kind: values.kind,
   }
 }

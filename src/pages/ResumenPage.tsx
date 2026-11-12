@@ -93,6 +93,9 @@ export function ResumenPage() {
         <SummaryRow label="Pagados" value={s.sales.pagado} kind="count" to="/pedidos?pago=pagado" />
         <SummaryRow label="Con datos por completar" value={s.sales.incomplete} kind="count" />
         <SummaryRow label="Cotizaciones (no cuentan)" value={s.sales.quotes} kind="count" to="/pedidos?entrega=cotizado" />
+        <SummaryGroup>Kits</SummaryGroup>
+        <SummaryRow label="Kits vendidos" value={s.kits.count} kind="count" />
+        <SummaryRow label="Ganancia de kits" value={s.kits.profitCop} signed />
       </SummarySection>
 
       <SummarySection title="Lo que me cuesta" preview={formatCop(s.costs.productsCop + s.costs.shippingCostCop)}>
